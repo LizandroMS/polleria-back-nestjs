@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -33,8 +34,8 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Get()
-  list() {
-    return this.usersService.list();
+  list(@Query('role') role?: 'ADMIN' | 'WORKER' | 'CUSTOMER') {
+    return this.usersService.listByRole(role);
   }
 
   @ApiBearerAuth()
@@ -49,5 +50,13 @@ export class UsersController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch(':id/toggle-active')
+  toggleActive(@Param('id') id: string) {
+    return this.usersService.toggleActive(id);
   }
 }

@@ -57,6 +57,28 @@ export class WorkersService {
     };
   }
 
+  async unassignBranch(workerBranchId: string) {
+    const existing = await this.databaseService.db
+      .selectFrom('worker_branches')
+      .selectAll()
+      .where('id', '=', workerBranchId)
+      .executeTakeFirst();
+
+    if (!existing) {
+      throw new BadRequestException('Asignación no encontrada');
+    }
+
+    await this.databaseService.db
+      .deleteFrom('worker_branches')
+      .where('id', '=', workerBranchId)
+      .execute();
+
+    return {
+      message: 'Asignación eliminada correctamente',
+      data: null,
+    };
+  }
+
   async myBranches(userId: string) {
     const rows = await this.databaseService.db
       .selectFrom('worker_branches as wb')
@@ -67,6 +89,31 @@ export class WorkersService {
 
     return {
       message: 'Sucursales del trabajador listadas',
+      data: rows,
+    };
+  }
+
+  async listAssignments() {
+    const rows = await this.databaseService.db
+      .selectFrom('worker_branches as wb')
+      .innerJoin('users as u', 'u.id', 'wb.user_id')
+      .innerJoin('branches as b', 'b.id', 'wb.branch_id')
+      .select([
+        'wb.id',
+        'wb.user_id',
+        'wb.branch_id',
+        'u.first_name',
+        'u.last_name',
+        'u.email',
+        'b.name as branch_name',
+        'b.district as branch_district',
+        'wb.created_at',
+      ])
+      .orderBy('wb.created_at desc')
+      .execute();
+
+    return {
+      message: 'Asignaciones listadas',
       data: rows,
     };
   }

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../common/constants/roles.constant';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -29,6 +37,14 @@ export class BranchesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @Get(':id')
+  getById(@Param('id') id: string) {
+    return this.branchesService.getById(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post()
   create(@Body() dto: CreateBranchDto) {
     return this.branchesService.create(dto);
@@ -40,5 +56,13 @@ export class BranchesController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
     return this.branchesService.update(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch(':id/toggle-active')
+  toggleActive(@Param('id') id: string) {
+    return this.branchesService.toggleActive(id);
   }
 }

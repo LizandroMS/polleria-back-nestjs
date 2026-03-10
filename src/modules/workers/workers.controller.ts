@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../common/constants/roles.constant';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -19,6 +19,22 @@ export class WorkersController {
   @Post('assign-branch')
   assignBranch(@Body() dto: AssignWorkerBranchDto) {
     return this.workersService.assignBranch(dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Get('assignments')
+  listAssignments() {
+    return this.workersService.listAssignments();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Delete('assignments/:id')
+  unassignBranch(@Param('id') id: string) {
+    return this.workersService.unassignBranch(id);
   }
 
   @ApiBearerAuth()

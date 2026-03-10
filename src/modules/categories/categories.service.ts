@@ -55,12 +55,22 @@ export class CategoriesService {
     return { message: 'Categorías listadas', data: categories };
   }
 
-  async update(id: string, dto: UpdateCategoryDto) {
-    const existing = await this.databaseService.db
+  async getById(id: string) {
+    const category = await this.databaseService.db
       .selectFrom('categories')
       .selectAll()
       .where('id', '=', id)
       .executeTakeFirst();
+
+    if (!category) {
+      throw new NotFoundException('Categoría no encontrada');
+    }
+
+    return { message: 'Categoría obtenida', data: category };
+  }
+
+  async update(id: string, dto: UpdateCategoryDto) {
+    const existing = await this.getRawById(id);
 
     if (!existing) {
       throw new NotFoundException('Categoría no encontrada');
@@ -92,5 +102,32 @@ export class CategoriesService {
       .executeTakeFirstOrThrow();
 
     return { message: 'Categoría actualizada correctamente', data: updated };
+  }
+
+  async toggleActive(id: string) {
+    const existing = await this.getRawById(id);
+
+    if (!existing) {
+      throw new NotFoundException('Categoría no encontrada');
+    }
+
+    const updated = await this.databaseService.db
+      .updateTable('categories')
+      .set({
+        is_active: !existing.is_active,
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Estado de categoría actualizado', data: updated };
+  }
+
+  private async getRawById(id: string) {
+    return this.databaseService.db
+      .selectFrom('categories')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
   }
 }

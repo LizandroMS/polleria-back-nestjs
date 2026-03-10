@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../common/constants/roles.constant';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -33,6 +42,14 @@ export class ProductsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @Get(':id')
+  getById(@Param('id') id: string) {
+    return this.productsService.getById(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post()
   create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto);
@@ -52,5 +69,13 @@ export class ProductsController {
   @Post(':id/branch-price')
   setBranchPrice(@Param('id') id: string, @Body() dto: SetProductBranchPriceDto) {
     return this.productsService.setBranchPrice(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch(':id/toggle-active')
+  toggleActive(@Param('id') id: string) {
+    return this.productsService.toggleActive(id);
   }
 }

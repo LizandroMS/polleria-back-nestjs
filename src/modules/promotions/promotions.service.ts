@@ -66,6 +66,32 @@ export class PromotionsService {
     return { message: 'Promociones listadas', data: promotions };
   }
 
+  async getById(id: string) {
+    const promotion = await this.databaseService.db
+      .selectFrom('promotions')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!promotion) {
+      throw new NotFoundException('Promoción no encontrada');
+    }
+
+    const products = await this.databaseService.db
+      .selectFrom('promotion_products')
+      .select(['product_id'])
+      .where('promotion_id', '=', id)
+      .execute();
+
+    return {
+      message: 'Promoción obtenida',
+      data: {
+        ...promotion,
+        product_ids: products.map((p) => p.product_id),
+      },
+    };
+  }
+
   async update(id: string, dto: UpdatePromotionDto) {
     const existing = await this.databaseService.db
       .selectFrom('promotions')
@@ -113,5 +139,28 @@ export class PromotionsService {
     }
 
     return { message: 'Promoción actualizada correctamente', data: updated };
+  }
+
+  async toggleActive(id: string) {
+    const existing = await this.databaseService.db
+      .selectFrom('promotions')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!existing) {
+      throw new NotFoundException('Promoción no encontrada');
+    }
+
+    const updated = await this.databaseService.db
+      .updateTable('promotions')
+      .set({
+        is_active: !existing.is_active,
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Estado de promoción actualizado', data: updated };
   }
 }

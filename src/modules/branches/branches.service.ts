@@ -47,12 +47,22 @@ export class BranchesService {
     return { message: 'Sucursales listadas', data: branches };
   }
 
-  async update(id: string, dto: UpdateBranchDto) {
-    const existing = await this.databaseService.db
+  async getById(id: string) {
+    const branch = await this.databaseService.db
       .selectFrom('branches')
       .selectAll()
       .where('id', '=', id)
       .executeTakeFirst();
+
+    if (!branch) {
+      throw new NotFoundException('Sucursal no encontrada');
+    }
+
+    return { message: 'Sucursal obtenida', data: branch };
+  }
+
+  async update(id: string, dto: UpdateBranchDto) {
+    const existing = await this.getRawById(id);
 
     if (!existing) {
       throw new NotFoundException('Sucursal no encontrada');
@@ -75,5 +85,32 @@ export class BranchesService {
       .executeTakeFirstOrThrow();
 
     return { message: 'Sucursal actualizada correctamente', data: updated };
+  }
+
+  async toggleActive(id: string) {
+    const existing = await this.getRawById(id);
+
+    if (!existing) {
+      throw new NotFoundException('Sucursal no encontrada');
+    }
+
+    const updated = await this.databaseService.db
+      .updateTable('branches')
+      .set({
+        is_active: !existing.is_active,
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Estado de sucursal actualizado', data: updated };
+  }
+
+  private async getRawById(id: string) {
+    return this.databaseService.db
+      .selectFrom('branches')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
   }
 }

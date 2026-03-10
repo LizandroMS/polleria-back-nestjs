@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../common/constants/roles.constant';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -29,6 +37,14 @@ export class PromotionsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @Get(':id')
+  getById(@Param('id') id: string) {
+    return this.promotionsService.getById(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post()
   create(@Body() dto: CreatePromotionDto) {
     return this.promotionsService.create(dto);
@@ -40,5 +56,13 @@ export class PromotionsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdatePromotionDto) {
     return this.promotionsService.update(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Patch(':id/toggle-active')
+  toggleActive(@Param('id') id: string) {
+    return this.promotionsService.toggleActive(id);
   }
 }

@@ -120,6 +120,32 @@ export class ProductsService {
     return { message: 'Productos listados', data: products };
   }
 
+  async getById(id: string) {
+    const product = await this.databaseService.db
+      .selectFrom('products')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!product) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+
+    const branchPrices = await this.databaseService.db
+      .selectFrom('product_branch_prices')
+      .selectAll()
+      .where('product_id', '=', id)
+      .execute();
+
+    return {
+      message: 'Producto obtenido',
+      data: {
+        ...product,
+        branch_prices: branchPrices,
+      },
+    };
+  }
+
   async update(id: string, dto: UpdateProductDto) {
     const existing = await this.databaseService.db
       .selectFrom('products')
@@ -185,6 +211,16 @@ export class ProductsService {
       throw new NotFoundException('Producto no encontrado');
     }
 
+    const branch = await this.databaseService.db
+      .selectFrom('branches')
+      .select(['id'])
+      .where('id', '=', dto.branchId)
+      .executeTakeFirst();
+
+    if (!branch) {
+      throw new BadRequestException('La sucursal no existe');
+    }
+
     const existing = await this.databaseService.db
       .selectFrom('product_branch_prices')
       .selectAll()
@@ -218,5 +254,28 @@ export class ProductsService {
       .executeTakeFirstOrThrow();
 
     return { message: 'Precio por sucursal creado', data: created };
+  }
+
+  async toggleActive(id: string) {
+    const existing = await this.databaseService.db
+      .selectFrom('products')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!existing) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+
+    const updated = await this.databaseService.db
+      .updateTable('products')
+      .set({
+        is_active: !existing.is_active,
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Estado del producto actualizado', data: updated };
   }
 }

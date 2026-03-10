@@ -56,6 +56,20 @@ export class CarouselService {
     return { message: 'Carrusel listado', data: items };
   }
 
+  async getById(id: string) {
+    const item = await this.databaseService.db
+      .selectFrom('carousel_items')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!item) {
+      throw new NotFoundException('Item no encontrado');
+    }
+
+    return { message: 'Item obtenido', data: item };
+  }
+
   async update(id: string, dto: UpdateCarouselItemDto) {
     const existing = await this.databaseService.db
       .selectFrom('carousel_items')
@@ -85,5 +99,28 @@ export class CarouselService {
       .executeTakeFirstOrThrow();
 
     return { message: 'Item del carrusel actualizado', data: updated };
+  }
+
+  async toggleActive(id: string) {
+    const existing = await this.databaseService.db
+      .selectFrom('carousel_items')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!existing) {
+      throw new NotFoundException('Item no encontrado');
+    }
+
+    const updated = await this.databaseService.db
+      .updateTable('carousel_items')
+      .set({
+        is_active: !existing.is_active,
+      })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Estado del carrusel actualizado', data: updated };
   }
 }

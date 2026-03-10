@@ -10,7 +10,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly databaseService: DatabaseService) { }
 
   async create(createUserDto: CreateUserDto) {
     const existingUser = await this.databaseService.db
@@ -154,23 +154,73 @@ export class UsersService {
   }
 
   async createCustomer(input: {
-  firstName: string;
-  lastName?: string;
-  email: string;
-  phone?: string;
-  passwordHash: string;
-}) {
-  return this.databaseService.db
-    .insertInto('users')
-    .values({
-      role: 'CUSTOMER',
-      first_name: input.firstName,
-      last_name: input.lastName ?? null,
-      email: input.email.toLowerCase(),
-      phone: input.phone ?? null,
-      password_hash: input.passwordHash,
-      is_active: true,
+    firstName: string;
+    lastName?: string;
+    email: string;
+    phone?: string;
+    passwordHash: string;
+  }) {
+    return this.databaseService.db
+      .insertInto('users')
+      .values({
+        role: 'CUSTOMER',
+        first_name: input.firstName,
+        last_name: input.lastName ?? null,
+        email: input.email.toLowerCase(),
+        phone: input.phone ?? null,
+        password_hash: input.passwordHash,
+        is_active: true,
+      })
+      .returning([
+        'id',
+        'role',
+        'first_name',
+        'last_name',
+        'email',
+        'phone',
+        'is_active',
+      ])
+      .executeTakeFirstOrThrow();
+  }
+  async listByRole(role?: 'ADMIN' | 'WORKER' | 'CUSTOMER') {
+  let query = this.databaseService.db
+    .selectFrom('users')
+    .select([
+      'id',
+      'role',
+      'first_name',
+      'last_name',
+      'email',
+      'phone',
+      'is_active',
+      'created_at',
+    ]);
+
+  if (role) {
+    query = query.where('role', '=', role);
+  }
+
+  const users = await query.orderBy('created_at desc').execute();
+
+  return {
+    message: 'Usuarios listados correctamente',
+    data: users,
+  };
+}
+
+async toggleActive(id: string) {
+  const user = await this.findRawById(id);
+
+  if (!user) {
+    throw new NotFoundException('Usuario no encontrado');
+  }
+
+  const updated = await this.databaseService.db
+    .updateTable('users')
+    .set({
+      is_active: !user.is_active,
     })
+    .where('id', '=', id)
     .returning([
       'id',
       'role',
@@ -179,7 +229,13 @@ export class UsersService {
       'email',
       'phone',
       'is_active',
+      'updated_at',
     ])
     .executeTakeFirstOrThrow();
+
+  return {
+    message: 'Estado del usuario actualizado',
+    data: updated,
+  };
 }
 }
