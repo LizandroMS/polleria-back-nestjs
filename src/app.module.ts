@@ -14,6 +14,8 @@ import { ProductsModule } from './modules/products/products.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { CarouselModule } from './modules/carousel/carousel.module';
 import { BranchesModule } from './modules/branches/branches.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { WorkersModule } from './modules/workers/workers.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { BranchesModule } from './modules/branches/branches.module';
     ProductsModule,
     PromotionsModule,
     CarouselModule,
+    OrdersModule,
+    WorkersModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserRole } from '../../common/constants/roles.constant';
 import { comparePassword, hashPassword } from '../../common/utils/password.util';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -14,36 +13,43 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-  const existingUser = await this.usersService.findByEmail(registerDto.email);
+    const existingUser = await this.usersService.findByEmail(registerDto.email);
 
-  if (existingUser) {
-    throw new BadRequestException('El email ya está registrado');
+    if (existingUser) {
+      throw new BadRequestException('El email ya está registrado');
+    }
+
+    const passwordHash = await hashPassword(registerDto.password);
+
+    const createdUser = await this.usersService.createCustomer({
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
+      email: registerDto.email,
+      phone: registerDto.phone,
+      passwordHash,
+    });
+
+    const accessToken = await this.signToken({
+      sub: createdUser.id,
+      email: createdUser.email,
+      role: createdUser.role,
+    });
+
+    return {
+      message: 'Registro exitoso',
+      data: {
+        user: {
+          id: createdUser.id,
+          role: createdUser.role,
+          first_name: createdUser.first_name,
+          last_name: createdUser.last_name,
+          email: createdUser.email,
+          phone: createdUser.phone,
+        },
+        accessToken,
+      },
+    };
   }
-
-  const passwordHash = await hashPassword(registerDto.password);
-
-  const createdUser = await this.usersService.createCustomer({
-    firstName: registerDto.firstName,
-    lastName: registerDto.lastName,
-    email: registerDto.email,
-    phone: registerDto.phone,
-    passwordHash,
-  });
-
-  const token = await this.signToken({
-    sub: createdUser.id,
-    email: createdUser.email,
-    role: createdUser.role,
-  });
-
-  return {
-    message: 'Registro exitoso',
-    data: {
-      user: createdUser,
-      accessToken: token,
-    },
-  };
-}
 
   async login(loginDto: LoginDto) {
     const user = await this.usersService.findByEmail(loginDto.email);
@@ -52,16 +58,13 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const isPasswordValid = await comparePassword(
-      loginDto.password,
-      user.password_hash,
-    );
+    const isPasswordValid = await comparePassword(loginDto.password, user.password_hash);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const token = await this.signToken({
+    const accessToken = await this.signToken({
       sub: user.id,
       email: user.email,
       role: user.role,
@@ -78,16 +81,17 @@ export class AuthService {
           email: user.email,
           phone: user.phone,
         },
-        accessToken: token,
+        accessToken,
       },
     };
   }
 
   async me(userId: string) {
-    const user = await this.usersService.findById(userId);
+    const result = await this.usersService.findById(userId);
+
     return {
       message: 'Perfil obtenido correctamente',
-      data: user.data,
+      data: result.data,
     };
   }
 
