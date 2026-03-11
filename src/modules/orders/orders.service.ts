@@ -33,6 +33,28 @@ export class OrdersService {
       throw new BadRequestException('Debes seleccionar una sucursal válida antes de confirmar');
     }
 
+    if (dto.orderType === 'DELIVERY' && !dto.customer.addressText && !dto.addressId) {
+      throw new BadRequestException('Para delivery debes indicar una dirección');
+    }
+
+    if (dto.invoiceType === 'BOLETA_SIMPLE' && !dto.customer.documentNumber) {
+      throw new BadRequestException('Para boleta simple debes indicar número de documento');
+    }
+
+    if (dto.invoiceType === 'FACTURA') {
+      if (!dto.customer.documentNumber) {
+        throw new BadRequestException('Para factura debes indicar RUC');
+      }
+
+      if (!dto.customer.businessName) {
+        throw new BadRequestException('Para factura debes indicar razón social');
+      }
+
+      if (!dto.customer.addressText) {
+        throw new BadRequestException('Para factura debes indicar dirección fiscal');
+      }
+    }
+
     const branch = await this.databaseService.db
       .selectFrom('branches')
       .selectAll()

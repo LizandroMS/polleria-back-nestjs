@@ -7,9 +7,11 @@ import {
   Post,
   Query,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../common/constants/roles.constant';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -41,14 +43,26 @@ export class UsersController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findById(@Param('id') id: string) {
+  findById(@Param('id') id: string, @CurrentUser() currentUser: { id: string; role: string }) {
+    if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
+      throw new ForbiddenException('No tienes permiso para ver este usuario');
+    }
+
     return this.usersService.findById(id);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() currentUser: { id: string; role: string },
+  ) {
+    if (currentUser.role !== UserRole.ADMIN && currentUser.id !== id) {
+      throw new ForbiddenException('No tienes permiso para editar este usuario');
+    }
+
     return this.usersService.update(id, dto);
   }
 
