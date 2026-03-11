@@ -18,7 +18,7 @@ export class BillingService {
     constructor(
         private readonly databaseService: DatabaseService,
         private readonly apisunatProvider: ApisunatProvider,
-        private readonly logger = new Logger(BillingService.name),
+        //private readonly logger = new Logger(BillingService.name),
         
     ) { }
 
