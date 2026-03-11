@@ -30,8 +30,8 @@ async function bootstrap() {
       'http://127.0.0.1:3000',
       'https://polleria-frontend-next.vercel.app',
     ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Authorization',
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 
@@ -47,6 +47,6 @@ async function bootstrap() {
 
   const port = parseInt(process.env.PORT ?? '4000', 10);
   await app.listen(port);
-  console.log(`Backend corriendo en http://localhost:${port}`);
+  console.log(`Backend iniciado correctamente en puerto ${port}`);
 }
 bootstrap();
