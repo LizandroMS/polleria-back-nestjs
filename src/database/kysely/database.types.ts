@@ -139,13 +139,13 @@ export interface OrdersTable {
   address_id: string | null;
   order_type: 'DELIVERY' | 'PICKUP' | 'DINE_IN';
   status:
-    | 'PENDING'
-    | 'CONFIRMED'
-    | 'PREPARING'
-    | 'READY'
-    | 'OUT_FOR_DELIVERY'
-    | 'DELIVERED'
-    | 'CANCELLED';
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'PREPARING'
+  | 'READY'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED';
   payment_method: 'CASH' | 'YAPE' | 'PLIN' | 'CARD';
   payment_status: 'PENDING' | 'PAID' | 'FAILED';
   invoice_type: 'NONE' | 'BOLETA_SIMPLE' | 'FACTURA';
@@ -200,6 +200,37 @@ export interface WorkerBranchesTable {
   created_at: Generated<Date>;
 }
 
+
+export interface DocumentSeriesTable {
+  id: Generated<string>;
+  branch_id: string;
+  document_type: 'BOLETA_SIMPLE' | 'FACTURA';
+  series: string;
+  current_number: number;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface ElectronicDocumentsTable {
+  id: Generated<string>;
+  order_id: string;
+  document_type: 'BOLETA_SIMPLE' | 'FACTURA';
+  series: string;
+  correlative: number;
+  external_status: string;
+  sunat_status: string | null;
+  hash: string | null;
+  xml_url: string | null;
+  cdr_url: string | null;
+  pdf_url: string | null;
+  api_response: any | null;
+  error_message: string | null;
+  emitted_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   users: UsersTable;
   carts: CartsTable;
@@ -216,4 +247,6 @@ export interface Database {
   order_items: OrderItemsTable;
   order_status_history: OrderStatusHistoryTable;
   worker_branches: WorkerBranchesTable;
+  document_series: DocumentSeriesTable;
+  electronic_documents: ElectronicDocumentsTable;
 }

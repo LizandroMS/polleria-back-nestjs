@@ -16,6 +16,7 @@ import { CarouselModule } from './modules/carousel/carousel.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { WorkersModule } from './modules/workers/workers.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { WorkersModule } from './modules/workers/workers.module';
     CarouselModule,
     OrdersModule,
     WorkersModule,
+    BillingModule,
   ],
 })
 export class AppModule { }

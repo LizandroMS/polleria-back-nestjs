@@ -11,10 +11,14 @@ import { DatabaseService } from '../../database/kysely/database.service';
 import { ChangeOrderStatusDto } from './dto/change-order-status.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly billingService: BillingService
+  ) { }
 
   async create(userId: string | null, dto: CreateOrderDto) {
     if (!dto.items.length) {
@@ -398,6 +402,10 @@ export class OrdersService {
         comment: dto.comment ?? null,
       })
       .execute();
+
+    if (dto.status === OrderStatus.DELIVERED) {
+      await this.billingService.emitIfRequiredOnDelivered(orderId);
+    }
 
     return {
       message: 'Estado del pedido actualizado correctamente',
