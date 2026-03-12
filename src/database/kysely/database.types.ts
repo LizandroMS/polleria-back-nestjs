@@ -92,6 +92,7 @@ export interface PromotionsTable {
   is_active: boolean;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+  image_url: string | null;
 }
 
 export interface PromotionProductsTable {

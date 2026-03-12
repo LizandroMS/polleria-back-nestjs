@@ -18,6 +18,7 @@ export class PromotionsService {
         starts_at: dto.startsAt ? new Date(dto.startsAt) : null,
         ends_at: dto.endsAt ? new Date(dto.endsAt) : null,
         is_active: dto.isActive ?? true,
+        image_url: dto.imageUrl ?? null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -114,6 +115,7 @@ export class PromotionsService {
         starts_at: dto.startsAt ? new Date(dto.startsAt) : existing.starts_at,
         ends_at: dto.endsAt ? new Date(dto.endsAt) : existing.ends_at,
         is_active: dto.isActive ?? existing.is_active,
+        image_url: dto.imageUrl ?? existing.image_url,
       })
       .where('id', '=', id)
       .returningAll()
