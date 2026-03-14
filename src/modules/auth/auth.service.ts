@@ -4,12 +4,20 @@ import { comparePassword, hashPassword } from '../../common/utils/password.util'
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { MailerService } from '../mailer/mailer.service';
+import { DatabaseService } from 'src/database/kysely/database.service';
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly mailerService: MailerService,
+    private readonly databaseService: DatabaseService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -98,4 +106,83 @@ export class AuthService {
   private async signToken(payload: { sub: string; email: string; role: string }) {
     return this.jwtService.signAsync(payload);
   }
+  async forgotPassword(dto: ForgotPasswordDto) {
+  const user = await this.databaseService.db
+    .selectFrom('users')
+    .selectAll()
+    .where('email', '=', dto.email)
+    .executeTakeFirst();
+
+  // responder siempre igual por seguridad
+  if (!user) {
+    return {
+      message: 'Si el correo existe, se enviará un enlace de recuperación.',
+      data: null,
+    };
+  }
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  await this.databaseService.db
+    .insertInto('password_reset_tokens')
+    .values({
+      user_id: user.id,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      used_at: undefined,
+    })
+    .execute();
+
+  const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+  const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+
+  await this.mailerService.sendPasswordResetEmail(user.email, resetUrl);
+
+  return {
+    message: 'Si el correo existe, se enviará un enlace de recuperación.',
+    data: null,
+  };
+}
+
+async resetPassword(dto: ResetPasswordDto) {
+  const tokenHash = crypto.createHash('sha256').update(dto.token).digest('hex');
+
+  const resetToken = await this.databaseService.db
+    .selectFrom('password_reset_tokens')
+    .selectAll()
+    .where('token_hash', '=', tokenHash)
+    .where('used_at', 'is', null)
+    .where('expires_at', '>', new Date())
+    .orderBy('created_at desc')
+    .executeTakeFirst();
+
+  if (!resetToken) {
+    throw new BadRequestException('El enlace es inválido o ha expirado');
+  }
+
+  const passwordHash = await bcrypt.hash(dto.password, 10);
+
+  await this.databaseService.db
+    .updateTable('users')
+    .set({
+      password_hash: passwordHash,
+    })
+    .where('id', '=', resetToken.user_id)
+    .execute();
+
+  await this.databaseService.db
+    .updateTable('password_reset_tokens')
+    .set({
+      used_at: new Date(),
+    })
+    .where('id', '=', resetToken.id)
+    .execute();
+
+  return {
+    message: 'Contraseña actualizada correctamente',
+    data: null,
+  };
+}
 }

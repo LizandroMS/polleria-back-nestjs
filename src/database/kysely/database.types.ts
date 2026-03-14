@@ -232,6 +232,15 @@ export interface ElectronicDocumentsTable {
   updated_at: Generated<Date>;
 }
 
+export interface PasswordResetTokensTable {
+  id: Generated<string>;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  used_at: Generated<Date>;
+  created_at: Date |null;
+}
+
 export interface Database {
   users: UsersTable;
   carts: CartsTable;
@@ -250,4 +259,6 @@ export interface Database {
   worker_branches: WorkerBranchesTable;
   document_series: DocumentSeriesTable;
   electronic_documents: ElectronicDocumentsTable;
+  password_reset_tokens:PasswordResetTokensTable
 }
+
