@@ -19,6 +19,7 @@ import { WorkersModule } from './modules/workers/workers.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { CustomerAddressesModule } from './modules/customer-addresses/customer-addresses.module';
 
 
 @Module({
@@ -35,6 +36,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
     CartModule,
     BranchesModule,
     CategoriesModule,
+    CustomerAddressesModule,
     ProductsModule,
     PromotionsModule,
     CarouselModule,
