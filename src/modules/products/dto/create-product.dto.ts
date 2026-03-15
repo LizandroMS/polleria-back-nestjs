@@ -29,6 +29,12 @@ export class CreateProductDto {
   @Min(0)
   basePrice: number;
 
+  @ApiPropertyOptional({ nullable: true, description: 'Precio promocional del producto' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  promoPrice?: number | null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

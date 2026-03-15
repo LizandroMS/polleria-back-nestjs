@@ -65,6 +65,7 @@ export interface ProductsTable {
   description: string | null;
   image_url: string | null;
   base_price: string;
+  promo_price: string | null;
   is_featured: boolean;
   is_active: boolean;
   created_at: Generated<Date>;

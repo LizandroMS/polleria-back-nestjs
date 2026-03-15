@@ -114,10 +114,12 @@ export class OrdersService {
         throw new BadRequestException(`El producto ${product.name} no está disponible en la sucursal`);
       }
 
-      const unitPrice = Number(branchPrice?.price ?? product.base_price);
+      const regularPrice = Number(branchPrice?.price ?? product.base_price);
+      const hasProductPromo = product.promo_price !== null;
+      const unitPrice = Number(product.promo_price ?? regularPrice);
       let discountAmount = 0;
 
-      if (item.promotionId) {
+      if (!hasProductPromo && item.promotionId) {
         const promotion = await this.databaseService.db
           .selectFrom('promotions as p')
           .innerJoin('promotion_products as pp', 'pp.promotion_id', 'p.id')
@@ -318,10 +320,10 @@ export class OrdersService {
         .executeTakeFirst(),
       order.address_id
         ? this.databaseService.db
-          .selectFrom('customer_addresses')
-          .selectAll()
-          .where('id', '=', order.address_id)
-          .executeTakeFirst()
+            .selectFrom('customer_addresses')
+            .selectAll()
+            .where('id', '=', order.address_id)
+            .executeTakeFirst()
         : Promise.resolve(null),
       this.databaseService.db
         .selectFrom('electronic_documents')

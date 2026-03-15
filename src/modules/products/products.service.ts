@@ -38,6 +38,10 @@ export class ProductsService {
         description: dto.description ?? null,
         image_url: dto.imageUrl ?? null,
         base_price: dto.basePrice.toFixed(2),
+        promo_price:
+          dto.promoPrice !== undefined && dto.promoPrice !== null
+            ? dto.promoPrice.toFixed(2)
+            : null,
         is_featured: dto.isFeatured ?? false,
         is_active: dto.isActive ?? true,
       })
@@ -59,6 +63,7 @@ export class ProductsService {
         'p.description',
         'p.image_url',
         'p.base_price',
+        'p.promo_price',
         'p.is_featured',
         'p.is_active',
         'c.name as category_name',
@@ -86,9 +91,13 @@ export class ProductsService {
           .where('branch_id', '=', params.branchId as string)
           .executeTakeFirst();
 
+        const referencePrice = branchPrice?.price ?? product.base_price;
+        const displayPrice = product.promo_price ?? referencePrice;
+
         return {
           ...product,
-          display_price: branchPrice?.price ?? product.base_price,
+          reference_price: referencePrice,
+          display_price: displayPrice,
           is_available: branchPrice?.is_available ?? true,
         };
       }),
@@ -109,6 +118,7 @@ export class ProductsService {
         'p.description',
         'p.image_url',
         'p.base_price',
+        'p.promo_price',
         'p.is_featured',
         'p.is_active',
         'p.created_at',
@@ -190,6 +200,12 @@ export class ProductsService {
         description: dto.description ?? existing.description,
         image_url: dto.imageUrl ?? existing.image_url,
         base_price: dto.basePrice !== undefined ? dto.basePrice.toFixed(2) : existing.base_price,
+        promo_price:
+          dto.promoPrice === null
+            ? null
+            : dto.promoPrice !== undefined
+              ? dto.promoPrice.toFixed(2)
+              : existing.promo_price,
         is_featured: dto.isFeatured ?? existing.is_featured,
         is_active: dto.isActive ?? existing.is_active,
       })
