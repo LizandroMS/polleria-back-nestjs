@@ -425,13 +425,23 @@ export class OrdersService {
       })
       .execute();
 
+    let billingResult: unknown = null;
+
     if (dto.status === OrderStatus.DELIVERED) {
-      await this.billingService.emitIfRequiredOnDelivered(orderId);
+      try {
+        billingResult = await this.billingService.emitIfRequiredOnDelivered(orderId);
+      } catch (error: any) {
+        billingResult = {
+          message: 'El pedido se marcó como entregado, pero la emisión del comprobante no se completó.',
+          error: error?.message ?? 'Error desconocido en facturación',
+        };
+      }
     }
 
     return {
       message: 'Estado del pedido actualizado correctamente',
       data: updated,
+      billing: billingResult,
     };
   }
 }

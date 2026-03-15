@@ -18,9 +18,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { WorkersModule } from './modules/workers/workers.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ProfileModule } from './modules/profile/profile.module';
-import { MailerModule } from '@nestjs-modules/mailer';
 import { CustomerAddressesModule } from './modules/customer-addresses/customer-addresses.module';
-
 
 @Module({
   imports: [
@@ -44,7 +42,6 @@ import { CustomerAddressesModule } from './modules/customer-addresses/customer-a
     WorkersModule,
     BillingModule,
     ProfileModule,
-    MailerModule
   ],
 })
-export class AppModule { }
+export class AppModule {}

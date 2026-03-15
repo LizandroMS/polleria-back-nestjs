@@ -1,8 +1,8 @@
 import {
     BadRequestException,
     Injectable,
-    NotFoundException,
     Logger,
+    NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../database/kysely/database.service';
 import {
@@ -15,11 +15,11 @@ import { ApisunatProvider } from './providers/apisunat.provider';
 
 @Injectable()
 export class BillingService {
+    private readonly logger = new Logger(BillingService.name);
+
     constructor(
         private readonly databaseService: DatabaseService,
         private readonly apisunatProvider: ApisunatProvider,
-        //private readonly logger = new Logger(BillingService.name),
-        
     ) { }
 
     async emitIfRequiredOnDelivered(orderId: string) {
@@ -93,6 +93,7 @@ export class BillingService {
         });
 
         try {
+            this.logger.log(`Iniciando emisión electrónica para la orden ${order.order_number}`);
             const apiResponse = await this.apisunatProvider.emitDocument(payload);
 
             await this.databaseService.db
@@ -136,6 +137,9 @@ export class BillingService {
                 data: emitted,
             };
         } catch (error: any) {
+            this.logger.error(
+                `Falló la emisión electrónica de la orden ${order.order_number}: ${error?.message ?? 'Error desconocido'}`,
+            );
             await this.databaseService.db
                 .updateTable('orders')
                 .set({

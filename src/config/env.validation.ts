@@ -15,4 +15,13 @@ export const envValidationSchema = Joi.object({
 
   JWT_SECRET: Joi.string().min(10).required(),
   JWT_EXPIRES_IN: Joi.string().default('1d'),
+
+  MAIL_HOST: Joi.string().optional(),
+  MAIL_PORT: Joi.number().optional(),
+  MAIL_USER: Joi.string().allow('').optional(),
+  MAIL_PASS: Joi.string().allow('').optional(),
+  MAIL_FROM: Joi.string().email().optional(),
+
+  APISUNAT_BASE_URL: Joi.string().uri().optional(),
+  APISUNAT_TOKEN: Joi.string().allow('').optional(),
 });
