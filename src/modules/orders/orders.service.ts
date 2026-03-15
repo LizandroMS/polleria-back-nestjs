@@ -299,18 +299,36 @@ export class OrdersService {
       }
     }
 
-    const items = await this.databaseService.db
-      .selectFrom('order_items')
-      .selectAll()
-      .where('order_id', '=', orderId)
-      .execute();
-
-    const history = await this.databaseService.db
-      .selectFrom('order_status_history')
-      .selectAll()
-      .where('order_id', '=', orderId)
-      .orderBy('created_at asc')
-      .execute();
+    const [items, history, branch, address, electronicDocument] = await Promise.all([
+      this.databaseService.db
+        .selectFrom('order_items')
+        .selectAll()
+        .where('order_id', '=', orderId)
+        .execute(),
+      this.databaseService.db
+        .selectFrom('order_status_history')
+        .selectAll()
+        .where('order_id', '=', orderId)
+        .orderBy('created_at asc')
+        .execute(),
+      this.databaseService.db
+        .selectFrom('branches')
+        .selectAll()
+        .where('id', '=', order.branch_id)
+        .executeTakeFirst(),
+      order.address_id
+        ? this.databaseService.db
+          .selectFrom('customer_addresses')
+          .selectAll()
+          .where('id', '=', order.address_id)
+          .executeTakeFirst()
+        : Promise.resolve(null),
+      this.databaseService.db
+        .selectFrom('electronic_documents')
+        .selectAll()
+        .where('order_id', '=', orderId)
+        .executeTakeFirst(),
+    ]);
 
     return {
       message: 'Detalle del pedido obtenido',
@@ -318,6 +336,9 @@ export class OrdersService {
         order,
         items,
         history,
+        branch,
+        address,
+        electronicDocument,
       },
     };
   }
