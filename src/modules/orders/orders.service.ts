@@ -320,10 +320,10 @@ export class OrdersService {
         .executeTakeFirst(),
       order.address_id
         ? this.databaseService.db
-            .selectFrom('customer_addresses')
-            .selectAll()
-            .where('id', '=', order.address_id)
-            .executeTakeFirst()
+          .selectFrom('customer_addresses')
+          .selectAll()
+          .where('id', '=', order.address_id)
+          .executeTakeFirst()
         : Promise.resolve(null),
       this.databaseService.db
         .selectFrom('electronic_documents')
