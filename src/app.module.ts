@@ -19,6 +19,7 @@ import { WorkersModule } from './modules/workers/workers.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { CustomerAddressesModule } from './modules/customer-addresses/customer-addresses.module';
+import { ReclamationBookModule } from './modules/reclamation-book/reclamation-book.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CustomerAddressesModule } from './modules/customer-addresses/customer-a
     WorkersModule,
     BillingModule,
     ProfileModule,
+    ReclamationBookModule,
   ],
 })
 export class AppModule {}

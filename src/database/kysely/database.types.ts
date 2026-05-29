@@ -242,6 +242,35 @@ export interface PasswordResetTokensTable {
   created_at: Date |null;
 }
 
+export interface ReclamationBookTable {
+  id: Generated<string>;
+  claim_code: string;
+  consumer_full_name: string;
+  consumer_document_type: 'DNI' | 'CE' | 'PASSPORT' | 'RUC';
+  consumer_document_number: string;
+  consumer_email: string;
+  consumer_phone: string | null;
+  consumer_address: string | null;
+  is_minor: boolean;
+  guardian_full_name: string | null;
+  guardian_document_number: string | null;
+  branch_id: string | null;
+  branch_name_snapshot: string | null;
+  order_number: string | null;
+  good_type: 'PRODUCT' | 'SERVICE';
+  amount: string | null;
+  description: string;
+  claim_type: 'RECLAMO' | 'QUEJA';
+  detail: string;
+  requested_solution: string;
+  status: 'RECEIVED' | 'IN_REVIEW' | 'ANSWERED' | 'CLOSED';
+  consumer_accepts_terms: boolean;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Database {
   users: UsersTable;
   carts: CartsTable;
@@ -260,6 +289,7 @@ export interface Database {
   worker_branches: WorkerBranchesTable;
   document_series: DocumentSeriesTable;
   electronic_documents: ElectronicDocumentsTable;
-  password_reset_tokens:PasswordResetTokensTable
+  password_reset_tokens: PasswordResetTokensTable;
+  reclamation_book: ReclamationBookTable;
 }
 
