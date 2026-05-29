@@ -96,13 +96,26 @@ export class BillingService {
             this.logger.log(`Iniciando emisión electrónica para la orden ${order.order_number}`);
             const apiResponse = await this.apisunatProvider.emitDocument(payload);
 
-            await this.databaseService.db
-                .updateTable('document_series')
-                .set({
-                    current_number: nextCorrelative,
-                })
-                .where('id', '=', seriesRow.id)
-                .execute();
+            // Nota para mí: APISUNAT puede responder HTTP 200 con success=false.
+            // En ese caso no debo marcar el comprobante como emitido.
+            if (apiResponse?.success === false) {
+                throw new BadRequestException(apiResponse?.message || 'APISUNAT rechazó la emisión');
+            }
+
+            const externalStatus = apiResponse?.payload?.estado || 'PENDING';
+            const isRejected = externalStatus === 'RECHAZADO';
+            const isPending = externalStatus === 'PENDIENTE' || externalStatus === 'PENDING';
+            const pdfUrl = apiResponse?.payload?.pdf?.a4 || apiResponse?.payload?.pdf?.ticket || null;
+
+            if (!isRejected) {
+                await this.databaseService.db
+                    .updateTable('document_series')
+                    .set({
+                        current_number: nextCorrelative,
+                    })
+                    .where('id', '=', seriesRow.id)
+                    .execute();
+            }
 
             const emitted = await this.databaseService.db
                 .insertInto('electronic_documents')
@@ -111,15 +124,15 @@ export class BillingService {
                     document_type: order.invoice_type as any,
                     series: seriesRow.series,
                     correlative: nextCorrelative,
-                    external_status: apiResponse?.payload?.estado || 'PENDING',
-                    sunat_status: apiResponse?.payload?.estado || null,
+                    external_status: externalStatus,
+                    sunat_status: externalStatus,
                     hash: apiResponse?.payload?.hash || null,
                     xml_url: apiResponse?.payload?.xml || null,
                     cdr_url: apiResponse?.payload?.cdr || null,
-                    pdf_url: apiResponse?.payload?.pdf?.ticket || null,
+                    pdf_url: pdfUrl,
                     api_response: apiResponse,
-                    error_message: null,
-                    emitted_at: new Date(),
+                    error_message: isRejected ? apiResponse?.message || 'Comprobante rechazado por SUNAT/APISUNAT' : null,
+                    emitted_at: isRejected ? null : new Date(),
                 })
                 .returningAll()
                 .executeTakeFirstOrThrow();
@@ -127,13 +140,17 @@ export class BillingService {
             await this.databaseService.db
                 .updateTable('orders')
                 .set({
-                    invoice_emission_status: 'ISSUED',
+                    invoice_emission_status: isRejected ? 'FAILED' : isPending ? 'PROCESSING' : 'ISSUED',
                 })
                 .where('id', '=', orderId)
                 .execute();
 
             return {
-                message: 'Documento emitido correctamente',
+                message: isRejected
+                    ? 'El comprobante fue rechazado y quedó para revisión'
+                    : isPending
+                        ? 'Documento emitido y pendiente de aceptación SUNAT'
+                        : 'Documento emitido correctamente',
                 data: emitted,
             };
         } catch (error: any) {

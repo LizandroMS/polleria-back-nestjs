@@ -29,7 +29,6 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'https://polleria-frontend-next.vercel.app',
-      'https://polleriaelsabrosito.com',
     ],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

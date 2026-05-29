@@ -362,7 +362,9 @@ export class OrdersService {
         'o.status',
         'o.order_type',
         'o.payment_method',
+        'o.payment_status',
         'o.invoice_type',
+        'o.invoice_emission_status',
         'o.created_at',
         'o.branch_id',
         'b.name as branch_name',
@@ -463,8 +465,12 @@ export class OrdersService {
 
     return {
       message: 'Estado del pedido actualizado correctamente',
-      data: updated,
-      billing: billingResult,
+      data: {
+        // Nota para mí: el interceptor global solo conserva `data`; por eso el resultado
+        // de facturación debe viajar dentro de data y no como propiedad hermana.
+        order: updated,
+        billing: billingResult,
+      },
     };
   }
 }

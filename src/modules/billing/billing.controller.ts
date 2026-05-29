@@ -25,6 +25,12 @@ export class BillingController {
     return this.billingService.getByOrder(orderId);
   }
 
+
+  @Post('emit/:orderId')
+  emit(@Param('orderId') orderId: string) {
+    return this.billingService.emitIfRequiredOnDelivered(orderId);
+  }
+
   @Post('retry/:orderId')
   retry(@Param('orderId') orderId: string) {
     return this.billingService.retry(orderId);

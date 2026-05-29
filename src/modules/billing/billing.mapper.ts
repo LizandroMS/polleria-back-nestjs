@@ -43,19 +43,25 @@ export function mapOrderToApisunatDocument(input: {
       order.customer_address_snapshot || '',
     items: items.map((item) => {
       const unitPrice = Number(item.unit_price_snapshot);
-      const grossPrice = unitPrice;
+      const discountAmount = Number(item.discount_amount ?? 0);
+
+      // Nota para mí: para APISUNAT debo enviar el precio finalmente cobrado.
+      // Si hubo promoción/descuento por item, uso el precio neto cobrado al cliente.
+      const grossPrice = Math.max(0, unitPrice - discountAmount);
       const netValue = Number((grossPrice / 1.18).toFixed(6));
 
       return {
         unidad_de_medida: item.unit_of_measure || 'NIU',
         descripcion: item.product_name_snapshot,
         cantidad: String(item.quantity),
-        valor_unitario: String(netValue),
-        precio_unitario: String(grossPrice),
+        valor_unitario: netValue.toFixed(6),
+        precio_unitario: grossPrice.toFixed(2),
         porcentaje_igv: String(item.igv_percentage ?? '18'),
         codigo_tipo_afectacion_igv: '10',
+        nombre_tributo: 'IGV',
       };
     }),
+    total: Number(order.total ?? 0).toFixed(2),
   };
 }
 
