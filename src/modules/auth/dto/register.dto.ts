@@ -24,4 +24,13 @@ export class RegisterDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Código corto del proyecto. Si no se envía, el registro queda asociado a POL.',
+    example: 'POL',
+  })
+  @IsOptional()
+  @IsString()
+  projectCode?: string;
 }

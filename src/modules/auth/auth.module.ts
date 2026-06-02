@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { UsersModule } from '../users/users.module';
 import { MailerModule } from '../mailer/mailer.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -12,6 +13,7 @@ import type { StringValue } from 'ms';
 @Module({
   imports: [
     UsersModule,
+    ProjectsModule,
     PassportModule,
     ConfigModule,
     MailerModule,

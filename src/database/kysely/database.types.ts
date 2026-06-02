@@ -13,6 +13,26 @@ export interface UsersTable {
   updated_at: Generated<Date>;
 }
 
+
+export interface ProjectsTable {
+  id: Generated<string>;
+  code: 'POL' | 'ROP';
+  name: string;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface UserProjectAccessTable {
+  id: Generated<string>;
+  user_id: string;
+  project_id: string;
+  role: 'ADMIN' | 'WORKER' | 'CUSTOMER';
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface CartsTable {
   id: Generated<string>;
   user_id: string | null;
@@ -273,6 +293,8 @@ export interface ReclamationBookTable {
 
 export interface Database {
   users: UsersTable;
+  projects: ProjectsTable;
+  user_project_access: UserProjectAccessTable;
   carts: CartsTable;
   cart_items: CartItemsTable;
   branches: BranchesTable;
