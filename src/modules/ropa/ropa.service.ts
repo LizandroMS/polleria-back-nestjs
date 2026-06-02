@@ -9,11 +9,15 @@ import { CreateRopCategoryDto } from './dto/create-rop-category.dto';
 import { CreateRopProductImageDto } from './dto/create-rop-product-image.dto';
 import { CreateRopProductVariantDto } from './dto/create-rop-product-variant.dto';
 import { CreateRopProductDto } from './dto/create-rop-product.dto';
+import { CreateRopCouponDto } from './dto/create-rop-coupon.dto';
 import { ListRopProductsDto } from './dto/list-rop-products.dto';
 import { UpdateRopCategoryDto } from './dto/update-rop-category.dto';
 import { UpdateRopProductImageDto } from './dto/update-rop-product-image.dto';
 import { UpdateRopProductVariantDto } from './dto/update-rop-product-variant.dto';
 import { UpdateRopProductDto } from './dto/update-rop-product.dto';
+import { UpdateRopCouponDto } from './dto/update-rop-coupon.dto';
+import { ValidateRopCouponDto } from './dto/validate-rop-coupon.dto';
+import { RedeemRopCouponDto } from './dto/redeem-rop-coupon.dto';
 
 type RopVariant = Selectable<RopProductVariantsTable>;
 type RopImage = Selectable<RopProductImagesTable>;
@@ -41,6 +45,171 @@ type RopProductListItem = {
 @Injectable()
 export class RopaService {
   constructor(private readonly databaseService: DatabaseService) {}
+
+
+  async listAdminCoupons() {
+    const coupons = await this.databaseService.db
+      .selectFrom('rop_coupons')
+      .selectAll()
+      .orderBy('created_at desc')
+      .execute();
+
+    const enriched = await this.attachCouponProducts(coupons);
+    return { message: 'Cupones de ropa listados', data: enriched };
+  }
+
+  async createCoupon(dto: CreateRopCouponDto) {
+    const code = this.normalizeCouponCode(dto.code);
+    await this.ensureCouponCodeIsAvailable(code);
+    await this.ensureProductsExist(dto.productIds);
+    this.ensureCouponDatesAreValid(dto.startsAt, dto.endsAt);
+
+    const created = await this.databaseService.db.transaction().execute(async (trx) => {
+      const coupon = await trx
+        .insertInto('rop_coupons')
+        .values({
+          code,
+          name: dto.name.trim(),
+          description: dto.description?.trim() ?? null,
+          discount_percentage: dto.discountPercentage.toFixed(2),
+          starts_at: dto.startsAt ? new Date(dto.startsAt) : null,
+          ends_at: dto.endsAt ? new Date(dto.endsAt) : null,
+          max_uses_total: dto.maxUsesTotal ?? null,
+          is_active: dto.isActive ?? true,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+
+      await trx
+        .insertInto('rop_coupon_products')
+        .values(this.uniqueIds(dto.productIds).map((productId) => ({ coupon_id: coupon.id, product_id: productId })))
+        .execute();
+
+      return coupon;
+    });
+
+    return this.getAdminCouponById(created.id);
+  }
+
+  async updateCoupon(id: string, dto: UpdateRopCouponDto) {
+    const existing = await this.getCouponOrFail(id);
+
+    const nextCode = dto.code ? this.normalizeCouponCode(dto.code) : existing.code;
+    if (nextCode !== existing.code) {
+      await this.ensureCouponCodeIsAvailable(nextCode, id);
+    }
+
+    if (dto.productIds) {
+      await this.ensureProductsExist(dto.productIds);
+    }
+
+    this.ensureCouponDatesAreValid(
+      dto.startsAt ?? existing.starts_at?.toISOString(),
+      dto.endsAt ?? existing.ends_at?.toISOString(),
+    );
+
+    const updated = await this.databaseService.db.transaction().execute(async (trx) => {
+      const coupon = await trx
+        .updateTable('rop_coupons')
+        .set({
+          code: nextCode,
+          name: dto.name?.trim() ?? existing.name,
+          description: dto.description === undefined ? existing.description : dto.description?.trim() ?? null,
+          discount_percentage:
+            dto.discountPercentage !== undefined
+              ? dto.discountPercentage.toFixed(2)
+              : existing.discount_percentage,
+          starts_at: dto.startsAt === undefined ? existing.starts_at : dto.startsAt ? new Date(dto.startsAt) : null,
+          ends_at: dto.endsAt === undefined ? existing.ends_at : dto.endsAt ? new Date(dto.endsAt) : null,
+          max_uses_total: dto.maxUsesTotal === undefined ? existing.max_uses_total : dto.maxUsesTotal ?? null,
+          is_active: dto.isActive ?? existing.is_active,
+          updated_at: new Date(),
+        })
+        .where('id', '=', id)
+        .returningAll()
+        .executeTakeFirstOrThrow();
+
+      if (dto.productIds) {
+        await trx.deleteFrom('rop_coupon_products').where('coupon_id', '=', id).execute();
+        await trx
+          .insertInto('rop_coupon_products')
+          .values(this.uniqueIds(dto.productIds).map((productId) => ({ coupon_id: id, product_id: productId })))
+          .execute();
+      }
+
+      return coupon;
+    });
+
+    return this.getAdminCouponById(updated.id);
+  }
+
+  async toggleCouponActive(id: string) {
+    const existing = await this.getCouponOrFail(id);
+
+    const updated = await this.databaseService.db
+      .updateTable('rop_coupons')
+      .set({ is_active: !existing.is_active, updated_at: new Date() })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Estado de cupón actualizado', data: updated };
+  }
+
+  async validateCoupon(dto: ValidateRopCouponDto, userId: string) {
+    const coupon = await this.getCouponByCodeOrFail(dto.code);
+    await this.ensureCouponCanBeUsed(coupon, userId);
+
+    const applicableProductIds = await this.getCouponProductIds(coupon.id);
+    const applicableItems = dto.items.filter((item) => applicableProductIds.has(item.productId));
+
+    if (applicableItems.length === 0) {
+      throw new BadRequestException('El cupón no aplica a los productos del carrito');
+    }
+
+    const eligibleSubtotal = applicableItems.reduce(
+      (total, item) => total + Math.max(0, Number(item.unitPrice)) * Math.max(1, Math.trunc(Number(item.quantity))),
+      0,
+    );
+    const discountAmount = this.roundMoney(eligibleSubtotal * (Number(coupon.discount_percentage) / 100));
+
+    return {
+      message: 'Cupón validado correctamente',
+      data: {
+        id: coupon.id,
+        code: coupon.code,
+        name: coupon.name,
+        discountPercentage: Number(coupon.discount_percentage),
+        eligibleSubtotal,
+        discountAmount,
+        applicableProductIds: Array.from(applicableProductIds),
+      },
+    };
+  }
+
+  async redeemCoupon(dto: RedeemRopCouponDto, userId: string) {
+    const coupon = await this.getCouponByCodeOrFail(dto.code);
+    await this.ensureCouponCanBeUsed(coupon, userId);
+
+    const redemption = await this.databaseService.db
+      .insertInto('rop_coupon_redemptions')
+      .values({
+        coupon_id: coupon.id,
+        user_id: userId,
+        order_reference: dto.orderReference?.trim() ?? null,
+        discount_amount: (dto.discountAmount ?? 0).toFixed(2),
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return { message: 'Cupón marcado como usado correctamente', data: redemption };
+  }
+
+  async getAdminCouponById(id: string) {
+    const coupon = await this.getCouponOrFail(id);
+    const [enriched] = await this.attachCouponProducts([coupon]);
+    return { message: 'Cupón de ropa obtenido', data: enriched };
+  }
 
   async listPublicCategories() {
     const categories = await this.databaseService.db
@@ -770,4 +939,177 @@ export class RopaService {
       throw new BadRequestException('El SKU de variante ya existe');
     }
   }
+
+  private normalizeCouponCode(code: string) {
+    return code.trim().toUpperCase().replace(/\s+/g, '');
+  }
+
+  private uniqueIds(ids: string[]) {
+    return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+  }
+
+  private roundMoney(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private ensureCouponDatesAreValid(startsAt?: string | null, endsAt?: string | null) {
+    if (!startsAt || !endsAt) return;
+
+    const starts = new Date(startsAt);
+    const ends = new Date(endsAt);
+
+    if (Number.isNaN(starts.getTime()) || Number.isNaN(ends.getTime())) return;
+
+    if (starts > ends) {
+      throw new BadRequestException('La fecha de inicio no puede ser mayor que la fecha fin del cupón');
+    }
+  }
+
+  private async ensureCouponCodeIsAvailable(code: string, excludedId?: string) {
+    let query = this.databaseService.db
+      .selectFrom('rop_coupons')
+      .select(['id'])
+      .where('code', '=', code);
+
+    if (excludedId) {
+      query = query.where('id', '!=', excludedId);
+    }
+
+    const exists = await query.executeTakeFirst();
+    if (exists) {
+      throw new BadRequestException('El código de cupón ya existe');
+    }
+  }
+
+  private async ensureProductsExist(productIds: string[]) {
+    const ids = this.uniqueIds(productIds);
+    if (ids.length === 0) {
+      throw new BadRequestException('Selecciona al menos un producto para el cupón');
+    }
+
+    const products = await this.databaseService.db
+      .selectFrom('rop_products')
+      .select(['id'])
+      .where('id', 'in', ids)
+      .execute();
+
+    if (products.length !== ids.length) {
+      throw new BadRequestException('Uno o más productos seleccionados no existen');
+    }
+  }
+
+  private async getCouponOrFail(id: string) {
+    const coupon = await this.databaseService.db
+      .selectFrom('rop_coupons')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!coupon) {
+      throw new NotFoundException('Cupón de ropa no encontrado');
+    }
+
+    return coupon;
+  }
+
+  private async getCouponByCodeOrFail(code: string) {
+    const normalizedCode = this.normalizeCouponCode(code);
+    const coupon = await this.databaseService.db
+      .selectFrom('rop_coupons')
+      .selectAll()
+      .where('code', '=', normalizedCode)
+      .executeTakeFirst();
+
+    if (!coupon) {
+      throw new NotFoundException('Cupón de ropa no encontrado');
+    }
+
+    return coupon;
+  }
+
+  private async getCouponProductIds(couponId: string) {
+    const rows = await this.databaseService.db
+      .selectFrom('rop_coupon_products')
+      .select(['product_id'])
+      .where('coupon_id', '=', couponId)
+      .execute();
+
+    return new Set(rows.map((row) => row.product_id));
+  }
+
+  private async ensureCouponCanBeUsed(coupon: any, userId: string) {
+    const now = new Date();
+
+    if (!coupon.is_active) {
+      throw new BadRequestException('El cupón no está activo');
+    }
+
+    if (coupon.starts_at && new Date(coupon.starts_at) > now) {
+      throw new BadRequestException('El cupón todavía no está vigente');
+    }
+
+    if (coupon.ends_at && new Date(coupon.ends_at) < now) {
+      throw new BadRequestException('El cupón ya venció');
+    }
+
+    const previousUse = await this.databaseService.db
+      .selectFrom('rop_coupon_redemptions')
+      .select(['id'])
+      .where('coupon_id', '=', coupon.id)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (previousUse) {
+      throw new BadRequestException('Este cupón ya fue usado por el usuario');
+    }
+
+    if (coupon.max_uses_total) {
+      const uses = await this.databaseService.db
+        .selectFrom('rop_coupon_redemptions')
+        .select((eb) => eb.fn.countAll().as('total'))
+        .where('coupon_id', '=', coupon.id)
+        .executeTakeFirst();
+
+      if (Number(uses?.total ?? 0) >= coupon.max_uses_total) {
+        throw new BadRequestException('El cupón alcanzó su límite de uso');
+      }
+    }
+  }
+
+  private async attachCouponProducts(coupons: any[]) {
+    if (coupons.length === 0) return [];
+
+    const couponIds = coupons.map((coupon) => coupon.id);
+    const rows = await this.databaseService.db
+      .selectFrom('rop_coupon_products as cp')
+      .innerJoin('rop_products as p', 'p.id', 'cp.product_id')
+      .select([
+        'cp.coupon_id',
+        'p.id as product_id',
+        'p.name as product_name',
+        'p.slug as product_slug',
+        'p.main_image_url as product_image_url',
+      ])
+      .where('cp.coupon_id', 'in', couponIds)
+      .orderBy('p.name asc')
+      .execute();
+
+    const productsByCoupon = new Map<string, any[]>();
+    rows.forEach((row) => {
+      const current = productsByCoupon.get(row.coupon_id) ?? [];
+      current.push({
+        id: row.product_id,
+        name: row.product_name,
+        slug: row.product_slug,
+        imageUrl: row.product_image_url,
+      });
+      productsByCoupon.set(row.coupon_id, current);
+    });
+
+    return coupons.map((coupon) => ({
+      ...coupon,
+      products: productsByCoupon.get(coupon.id) ?? [],
+    }));
+  }
+
 }

@@ -318,6 +318,37 @@ export interface RopProductImagesTable {
   updated_at: Generated<Date>;
 }
 
+
+export interface RopCouponsTable {
+  id: Generated<string>;
+  code: string;
+  name: string;
+  description: string | null;
+  discount_percentage: string;
+  starts_at: Date | null;
+  ends_at: Date | null;
+  max_uses_total: number | null;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RopCouponProductsTable {
+  id: Generated<string>;
+  coupon_id: string;
+  product_id: string;
+  created_at: Generated<Date>;
+}
+
+export interface RopCouponRedemptionsTable {
+  id: Generated<string>;
+  coupon_id: string;
+  user_id: string;
+  order_reference: string | null;
+  discount_amount: string;
+  created_at: Generated<Date>;
+}
+
 export interface ReclamationBookTable {
   id: Generated<string>;
   claim_code: string;
@@ -372,6 +403,9 @@ export interface Database {
   rop_products: RopProductsTable;
   rop_product_variants: RopProductVariantsTable;
   rop_product_images: RopProductImagesTable;
+  rop_coupons: RopCouponsTable;
+  rop_coupon_products: RopCouponProductsTable;
+  rop_coupon_redemptions: RopCouponRedemptionsTable;
   reclamation_book: ReclamationBookTable;
 }
 

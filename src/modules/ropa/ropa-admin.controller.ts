@@ -15,11 +15,13 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateRopCategoryDto } from './dto/create-rop-category.dto';
+import { CreateRopCouponDto } from './dto/create-rop-coupon.dto';
 import { CreateRopProductImageDto } from './dto/create-rop-product-image.dto';
 import { CreateRopProductVariantDto } from './dto/create-rop-product-variant.dto';
 import { CreateRopProductDto } from './dto/create-rop-product.dto';
 import { ListRopProductsDto } from './dto/list-rop-products.dto';
 import { UpdateRopCategoryDto } from './dto/update-rop-category.dto';
+import { UpdateRopCouponDto } from './dto/update-rop-coupon.dto';
 import { UpdateRopProductImageDto } from './dto/update-rop-product-image.dto';
 import { UpdateRopProductVariantDto } from './dto/update-rop-product-variant.dto';
 import { UpdateRopProductDto } from './dto/update-rop-product.dto';
@@ -32,6 +34,27 @@ import { RopaService } from './ropa.service';
 @Controller('rop-admin')
 export class RopaAdminController {
   constructor(private readonly ropaService: RopaService) {}
+
+
+  @Get('coupons')
+  listCoupons() {
+    return this.ropaService.listAdminCoupons();
+  }
+
+  @Post('coupons')
+  createCoupon(@Body() dto: CreateRopCouponDto) {
+    return this.ropaService.createCoupon(dto);
+  }
+
+  @Patch('coupons/:id')
+  updateCoupon(@Param('id') id: string, @Body() dto: UpdateRopCouponDto) {
+    return this.ropaService.updateCoupon(id, dto);
+  }
+
+  @Patch('coupons/:id/toggle-active')
+  toggleCouponActive(@Param('id') id: string) {
+    return this.ropaService.toggleCouponActive(id);
+  }
 
   @Get('categories')
   listCategories() {
