@@ -20,6 +20,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { CustomerAddressesModule } from './modules/customer-addresses/customer-addresses.module';
 import { ReclamationBookModule } from './modules/reclamation-book/reclamation-book.module';
+import { RopaModule } from './modules/ropa/ropa.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ReclamationBookModule } from './modules/reclamation-book/reclamation-bo
     BillingModule,
     ProfileModule,
     ReclamationBookModule,
+    RopaModule,
   ],
 })
 export class AppModule {}

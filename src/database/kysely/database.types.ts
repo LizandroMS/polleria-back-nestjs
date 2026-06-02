@@ -262,6 +262,62 @@ export interface PasswordResetTokensTable {
   created_at: Date |null;
 }
 
+
+export interface RopCategoriesTable {
+  id: Generated<string>;
+  name: string;
+  slug: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RopProductsTable {
+  id: Generated<string>;
+  category_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  brand: string | null;
+  fit: string | null;
+  material: string | null;
+  care_instructions: string | null;
+  base_price: string;
+  sale_price: string | null;
+  main_image_url: string | null;
+  is_featured: boolean;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RopProductVariantsTable {
+  id: Generated<string>;
+  product_id: string;
+  sku: string | null;
+  size: string;
+  color_name: string;
+  color_hex: string | null;
+  stock: number;
+  additional_price: string;
+  is_active: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RopProductImagesTable {
+  id: Generated<string>;
+  product_id: string;
+  image_url: string;
+  alt_text: string | null;
+  sort_order: number;
+  is_primary: boolean;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface ReclamationBookTable {
   id: Generated<string>;
   claim_code: string;
@@ -312,6 +368,10 @@ export interface Database {
   document_series: DocumentSeriesTable;
   electronic_documents: ElectronicDocumentsTable;
   password_reset_tokens: PasswordResetTokensTable;
+  rop_categories: RopCategoriesTable;
+  rop_products: RopProductsTable;
+  rop_product_variants: RopProductVariantsTable;
+  rop_product_images: RopProductImagesTable;
   reclamation_book: ReclamationBookTable;
 }
 
