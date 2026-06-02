@@ -44,13 +44,65 @@ export class AuthService {
         projectCode,
       );
 
-      if (existingProjectAccess) {
-        throw new BadRequestException('El email ya está registrado para este proyecto');
+      const isPasswordValid = await comparePassword(
+        registerDto.password,
+        existingUser.password_hash,
+      );
+
+      if (!isPasswordValid) {
+        throw new BadRequestException(
+          'El email ya existe. Ingresa la contraseña correcta para habilitar este proyecto.',
+        );
       }
 
-      throw new BadRequestException(
-        'El email ya existe. Inicia sesión o solicita que se habilite el acceso a este proyecto.',
+      if (existingProjectAccess) {
+        const accessToken = await this.signToken({
+          sub: existingUser.id,
+          email: existingUser.email,
+          role: existingProjectAccess.role,
+          projectCode: existingProjectAccess.projectCode,
+          projectId: existingProjectAccess.projectId,
+        });
+
+        return {
+          message: 'La cuenta ya tenía acceso a este proyecto. Sesión iniciada correctamente.',
+          data: {
+            user: this.mapAuthUser(existingUser, existingProjectAccess),
+            accessToken,
+          },
+        };
+      }
+
+      await this.syncExistingUserProfile(existingUser.id, {
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+        phone: registerDto.phone,
+      });
+
+      const createdProjectAccess = await this.projectsService.ensureUserAccess(
+        existingUser.id,
+        projectCode,
+        UserRole.CUSTOMER,
       );
+
+      const refreshedUser =
+        (await this.usersService.findByEmail(existingUser.email)) ?? existingUser;
+
+      const accessToken = await this.signToken({
+        sub: refreshedUser.id,
+        email: refreshedUser.email,
+        role: createdProjectAccess.role,
+        projectCode: createdProjectAccess.projectCode,
+        projectId: createdProjectAccess.projectId,
+      });
+
+      return {
+        message: 'Cuenta existente vinculada correctamente al nuevo proyecto.',
+        data: {
+          user: this.mapAuthUser(refreshedUser, createdProjectAccess),
+          accessToken,
+        },
+      };
     }
 
     const passwordHash = await hashPassword(registerDto.password);
@@ -66,7 +118,7 @@ export class AuthService {
     const projectAccess = await this.projectsService.ensureUserAccess(
       createdUser.id,
       projectCode,
-      createdUser.role as UserRole,
+      UserRole.CUSTOMER,
     );
 
     const accessToken = await this.signToken({
@@ -230,6 +282,37 @@ export class AuthService {
       message: 'Contraseña actualizada correctamente',
       data: null,
     };
+  }
+
+
+  private async syncExistingUserProfile(
+    userId: string,
+    input: {
+      firstName: string;
+      lastName?: string;
+      phone?: string;
+    },
+  ) {
+    const user = await this.usersService.findRawById(userId);
+
+    if (!user) {
+      return;
+    }
+
+    // Nota para mí:
+    // Cuando una cuenta ya existe por otro proyecto, no la duplico.
+    // Solo completo datos faltantes y luego creo el acceso en user_project_access.
+    // Así el mismo correo puede usar POL y ROP con el mismo password.
+    await this.databaseService.db
+      .updateTable('users')
+      .set({
+        first_name: user.first_name || input.firstName,
+        last_name: user.last_name ?? input.lastName ?? null,
+        phone: user.phone ?? input.phone ?? null,
+        updated_at: new Date(),
+      })
+      .where('id', '=', userId)
+      .execute();
   }
 
   private async signToken(payload: JwtPayload) {
