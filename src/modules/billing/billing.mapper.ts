@@ -2,11 +2,35 @@ type OrderEntity = any;
 type OrderItemEntity = any;
 
 function nowDateParts() {
-  const now = new Date();
-  const fecha = now.toISOString().slice(0, 10);
-  const hora = now.toTimeString().slice(0, 8);
+  const limaFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    hourCycle: 'h23',
+  });
 
-  return { fecha, hora };
+  const parts = limaFormatter.formatToParts(new Date());
+  const getPart = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  const year = getPart('year');
+  const month = getPart('month');
+  const day = getPart('day');
+  const hour = getPart('hour');
+  const minute = getPart('minute');
+  const second = getPart('second');
+
+  // Nota para mí: APISUNAT valida la fecha de emisión contra la fecha de Perú.
+  // Railway trabaja en UTC; por eso nunca debo usar toISOString() para comprobantes.
+  return {
+    fecha: `${year}-${month}-${day}`,
+    hora: `${hour}:${minute}:${second}`,
+  };
 }
 
 export function mapOrderToApisunatDocument(input: {
