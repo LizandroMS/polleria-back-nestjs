@@ -59,6 +59,11 @@ export class UpdateRopProductDto {
   @IsString()
   mainImageUrl?: string | null;
 
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  mainImageStoragePath?: string | null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

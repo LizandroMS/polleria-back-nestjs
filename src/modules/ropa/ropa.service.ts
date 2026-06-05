@@ -18,6 +18,7 @@ import { UpdateRopProductDto } from './dto/update-rop-product.dto';
 import { UpdateRopCouponDto } from './dto/update-rop-coupon.dto';
 import { ValidateRopCouponDto } from './dto/validate-rop-coupon.dto';
 import { RedeemRopCouponDto } from './dto/redeem-rop-coupon.dto';
+import { RopaStorageService } from './ropa-storage.service';
 
 type RopVariant = Selectable<RopProductVariantsTable>;
 type RopImage = Selectable<RopProductImagesTable>;
@@ -35,6 +36,7 @@ type RopProductListItem = {
   base_price: string;
   sale_price: string | null;
   main_image_url: string | null;
+  main_image_storage_path: string | null;
   is_featured: boolean;
   is_active: boolean;
   created_at?: Date;
@@ -44,7 +46,10 @@ type RopProductListItem = {
 
 @Injectable()
 export class RopaService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly ropaStorageService: RopaStorageService,
+  ) {}
 
 
   async listAdminCoupons() {
@@ -321,6 +326,7 @@ export class RopaService {
         'p.base_price',
         'p.sale_price',
         'p.main_image_url',
+        'p.main_image_storage_path',
         'p.is_featured',
         'p.is_active',
         'c.name as category_name',
@@ -356,6 +362,7 @@ export class RopaService {
         'p.base_price',
         'p.sale_price',
         'p.main_image_url',
+        'p.main_image_storage_path',
         'p.is_featured',
         'p.is_active',
         'p.created_at',
@@ -396,6 +403,7 @@ export class RopaService {
               ? dto.salePrice.toFixed(2)
               : null,
           main_image_url: dto.mainImageUrl?.trim() ?? null,
+          main_image_storage_path: dto.mainImageStoragePath?.trim() ?? null,
           is_featured: dto.isFeatured ?? false,
           is_active: dto.isActive ?? true,
         })
@@ -468,6 +476,10 @@ export class RopaService {
               : existing.sale_price,
         main_image_url:
           dto.mainImageUrl === undefined ? existing.main_image_url : dto.mainImageUrl?.trim() ?? null,
+        main_image_storage_path:
+          dto.mainImageStoragePath === undefined
+            ? existing.main_image_storage_path
+            : dto.mainImageStoragePath?.trim() ?? null,
         is_featured: dto.isFeatured ?? existing.is_featured,
         is_active: dto.isActive ?? existing.is_active,
         updated_at: new Date(),
@@ -581,6 +593,9 @@ export class RopaService {
         .values({
           product_id: productId,
           image_url: dto.imageUrl.trim(),
+          storage_path: dto.storagePath?.trim() ?? null,
+          mime_type: dto.mimeType?.trim() ?? null,
+          size_bytes: dto.sizeBytes ?? null,
           alt_text: dto.altText?.trim() ?? null,
           sort_order: dto.sortOrder ?? 0,
           is_primary: dto.isPrimary ?? false,
@@ -608,6 +623,9 @@ export class RopaService {
         .updateTable('rop_product_images')
         .set({
           image_url: dto.imageUrl?.trim() ?? existing.image_url,
+          storage_path: dto.storagePath === undefined ? existing.storage_path : dto.storagePath?.trim() ?? null,
+          mime_type: dto.mimeType === undefined ? existing.mime_type : dto.mimeType?.trim() ?? null,
+          size_bytes: dto.sizeBytes === undefined ? existing.size_bytes : dto.sizeBytes ?? null,
           alt_text: dto.altText === undefined ? existing.alt_text : dto.altText?.trim() ?? null,
           sort_order: dto.sortOrder ?? existing.sort_order,
           is_primary: dto.isPrimary ?? existing.is_primary,
@@ -623,6 +641,8 @@ export class RopaService {
 
   async deleteImage(id: string) {
     const existing = await this.getImageOrFail(id);
+
+    await this.ropaStorageService.deleteProductImageByPath(existing.storage_path);
 
     await this.databaseService.db
       .deleteFrom('rop_product_images')
@@ -649,6 +669,7 @@ export class RopaService {
         'p.base_price',
         'p.sale_price',
         'p.main_image_url',
+        'p.main_image_storage_path',
         'p.is_featured',
         'p.is_active',
         'p.created_at',
@@ -778,6 +799,9 @@ export class RopaService {
     const normalizedImages = images.map((image, index) => ({
       product_id: productId,
       image_url: image.imageUrl.trim(),
+      storage_path: image.storagePath?.trim() ?? null,
+      mime_type: image.mimeType?.trim() ?? null,
+      size_bytes: image.sizeBytes ?? null,
       alt_text: image.altText?.trim() ?? null,
       sort_order: image.sortOrder ?? index,
       is_primary: image.isPrimary ?? index === 0,

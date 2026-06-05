@@ -7,9 +7,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../../common/constants/roles.constant';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -26,6 +29,8 @@ import { UpdateRopProductImageDto } from './dto/update-rop-product-image.dto';
 import { UpdateRopProductVariantDto } from './dto/update-rop-product-variant.dto';
 import { UpdateRopProductDto } from './dto/update-rop-product.dto';
 import { RopaService } from './ropa.service';
+import { RopaStorageService } from './ropa-storage.service';
+import { UploadedImageFile } from './types.uploaded-image-file';
 
 @ApiTags('Ropa - Admin')
 @ApiBearerAuth()
@@ -33,8 +38,36 @@ import { RopaService } from './ropa.service';
 @Roles(UserRole.ADMIN)
 @Controller('rop-admin')
 export class RopaAdminController {
-  constructor(private readonly ropaService: RopaService) {}
+  constructor(
+    private readonly ropaService: RopaService,
+    private readonly ropaStorageService: RopaStorageService,
+  ) {}
 
+
+
+
+  @Post('uploads/product-image')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Imagen de producto. Formatos permitidos: JPG, PNG o WEBP. Máximo 5 MB.',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  uploadProductImage(
+    @UploadedFile() file: UploadedImageFile,
+    @Query('productId') productId?: string,
+  ) {
+    return this.ropaStorageService.uploadProductImage(file, { productId });
+  }
 
   @Get('coupons')
   listCoupons() {

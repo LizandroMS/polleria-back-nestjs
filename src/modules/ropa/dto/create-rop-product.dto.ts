@@ -66,6 +66,11 @@ export class CreateRopProductDto {
   @IsString()
   mainImageUrl?: string;
 
+  @ApiPropertyOptional({ example: 'products/temp/2026/06/archivo.webp' })
+  @IsOptional()
+  @IsString()
+  mainImageStoragePath?: string;
+
   @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()

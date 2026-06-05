@@ -287,6 +287,7 @@ export interface RopProductsTable {
   base_price: string;
   sale_price: string | null;
   main_image_url: string | null;
+  main_image_storage_path: string | null;
   is_featured: boolean;
   is_active: boolean;
   created_at: Generated<Date>;
@@ -311,6 +312,9 @@ export interface RopProductImagesTable {
   id: Generated<string>;
   product_id: string;
   image_url: string;
+  storage_path: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
   alt_text: string | null;
   sort_order: number;
   is_primary: boolean;

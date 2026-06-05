@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.rop_products (
   base_price numeric NOT NULL CHECK (base_price >= 0::numeric),
   sale_price numeric CHECK (sale_price >= 0::numeric),
   main_image_url text,
+  main_image_storage_path text,
   is_featured boolean NOT NULL DEFAULT false,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -60,6 +61,9 @@ CREATE TABLE IF NOT EXISTS public.rop_product_images (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   product_id uuid NOT NULL,
   image_url text NOT NULL,
+  storage_path text,
+  mime_type character varying,
+  size_bytes integer,
   alt_text text,
   sort_order integer NOT NULL DEFAULT 0,
   is_primary boolean NOT NULL DEFAULT false,
@@ -76,6 +80,8 @@ CREATE INDEX IF NOT EXISTS idx_rop_product_variants_product_id ON public.rop_pro
 CREATE INDEX IF NOT EXISTS idx_rop_product_variants_size ON public.rop_product_variants(size);
 CREATE INDEX IF NOT EXISTS idx_rop_product_variants_color_name ON public.rop_product_variants(color_name);
 CREATE INDEX IF NOT EXISTS idx_rop_product_images_product_id ON public.rop_product_images(product_id);
+CREATE INDEX IF NOT EXISTS idx_rop_products_main_image_storage_path ON public.rop_products(main_image_storage_path);
+CREATE INDEX IF NOT EXISTS idx_rop_product_images_storage_path ON public.rop_product_images(storage_path);
 
 -- Datos base para empezar a registrar productos desde el admin.
 INSERT INTO public.rop_categories (name, slug, description, sort_order, is_active)
