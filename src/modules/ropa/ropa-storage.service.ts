@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { UploadedImageFile } from './types.uploaded-image-file';
+import type { UploadedImageFile } from './types.uploaded-image-file';
 
 type UploadProductImageOptions = {
   productId?: string;
@@ -42,7 +42,7 @@ export class RopaStorageService {
         'Cache-Control': '3600',
         'x-upsert': 'false',
       },
-      body: file!.buffer,
+      body: file!.buffer as unknown as BodyInit,
     });
 
     if (!response.ok) {

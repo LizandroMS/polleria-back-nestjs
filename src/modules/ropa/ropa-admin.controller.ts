@@ -30,7 +30,7 @@ import { UpdateRopProductVariantDto } from './dto/update-rop-product-variant.dto
 import { UpdateRopProductDto } from './dto/update-rop-product.dto';
 import { RopaService } from './ropa.service';
 import { RopaStorageService } from './ropa-storage.service';
-import { UploadedImageFile } from './types.uploaded-image-file';
+import type { UploadedImageFile } from './types.uploaded-image-file';
 
 @ApiTags('Ropa - Admin')
 @ApiBearerAuth()
