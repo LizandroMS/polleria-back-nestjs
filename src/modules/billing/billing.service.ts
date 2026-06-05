@@ -51,10 +51,37 @@ export class BillingService {
             .executeTakeFirst();
 
         if (existingDoc) {
-            return {
-                message: 'El pedido ya tiene un documento electrónico asociado',
-                data: existingDoc,
-            };
+            const canRetry =
+                existingDoc.external_status === 'FAILED' ||
+                existingDoc.external_status === 'RECHAZADO' ||
+                existingDoc.external_status === 'ERROR';
+
+            if (!canRetry) {
+                return {
+                    message: 'El pedido ya tiene un documento electrónico asociado',
+                    data: existingDoc,
+                };
+            }
+
+            /**
+             * Nota para mí:
+             * Si el comprobante anterior falló, permito una nueva emisión manual.
+             * Elimino el intento fallido porque electronic_documents.order_id es UNIQUE
+             * y no permite registrar otro comprobante para el mismo pedido.
+             */
+            await this.databaseService.db
+                .deleteFrom('electronic_documents')
+                .where('id', '=', existingDoc.id)
+                .execute();
+
+            await this.databaseService.db
+                .updateTable('orders')
+                .set({
+                    invoice_emission_status: 'PENDING',
+                    updated_at: new Date(),
+                })
+                .where('id', '=', orderId)
+                .execute();
         }
 
         const seriesRow = await this.databaseService.db
