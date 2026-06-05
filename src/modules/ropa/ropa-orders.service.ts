@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../../database/database.service';
+import { sql } from 'kysely';
+import { DatabaseService } from '../../database/kysely/database.service';
 import { CreateRopOrderDto } from './dto/create-rop-order.dto';
 import { UpdateRopOrderStatusDto } from './dto/update-rop-order-status.dto';
 import { UpdateRopPaymentStatusDto } from './dto/update-rop-payment-status.dto';
@@ -39,9 +40,80 @@ export class RopaOrdersService {
       throw new BadRequestException('El pedido debe tener al menos un producto.');
     }
 
-    const subtotal = toNumber(dto.subtotal);
-    const discountTotal = toNumber(dto.discountTotal);
-    const total = toNumber(dto.total);
+    /**
+     * Nota para mí:
+     * En ropa la variante es la unidad vendible real porque contiene talla, color y stock.
+     * Por eso no permito crear pedidos sin variantId; así puedo descontar inventario
+     * con precisión cuando el cliente finaliza su solicitud.
+     */
+    const itemsWithoutVariant = dto.items.filter((item) => !item.variantId);
+    if (itemsWithoutVariant.length > 0) {
+      throw new BadRequestException('Todos los productos del pedido deben tener una talla/color seleccionada.');
+    }
+
+    const requestedByVariant = dto.items.reduce<Map<string, number>>((acc, item) => {
+      const variantId = item.variantId as string;
+      const quantity = Math.max(1, Math.trunc(Number(item.quantity) || 1));
+      acc.set(variantId, (acc.get(variantId) ?? 0) + quantity);
+      return acc;
+    }, new Map<string, number>());
+
+    const variantIds = Array.from(requestedByVariant.keys());
+
+    const variants = await this.databaseService.db
+      .selectFrom('rop_product_variants as v')
+      .innerJoin('rop_products as p', 'p.id', 'v.product_id')
+      .select([
+        'v.id as variant_id',
+        'v.product_id',
+        'v.sku',
+        'v.size',
+        'v.color_name',
+        'v.stock',
+        'v.additional_price',
+        'v.is_active as variant_is_active',
+        'p.name as product_name',
+        'p.base_price',
+        'p.sale_price',
+        'p.main_image_url',
+        'p.is_active as product_is_active',
+      ])
+      .where('v.id', 'in', variantIds)
+      .execute();
+
+    const variantsById = new Map(variants.map((variant) => [variant.variant_id, variant]));
+
+    for (const variantId of variantIds) {
+      const variant = variantsById.get(variantId);
+      const requestedQuantity = requestedByVariant.get(variantId) ?? 0;
+
+      if (!variant) {
+        throw new BadRequestException('Una de las tallas seleccionadas ya no existe. Actualiza tu carrito.');
+      }
+
+      if (!variant.product_is_active || !variant.variant_is_active) {
+        throw new BadRequestException(`La talla ${variant.size} / ${variant.color_name} ya no está activa.`);
+      }
+
+      if (Number(variant.stock) < requestedQuantity) {
+        throw new BadRequestException(
+          `Stock insuficiente para ${variant.product_name} talla ${variant.size} color ${variant.color_name}. Disponible: ${variant.stock}.`,
+        );
+      }
+    }
+
+    const subtotalFromCatalog = dto.items.reduce((total, item) => {
+      const variant = variantsById.get(item.variantId as string);
+      if (!variant) return total;
+      const quantity = Math.max(1, Math.trunc(Number(item.quantity) || 1));
+      const basePrice = toNumber(variant.sale_price ?? variant.base_price);
+      const additionalPrice = toNumber(variant.additional_price);
+      return total + (basePrice + additionalPrice) * quantity;
+    }, 0);
+
+    const subtotal = this.roundMoney(subtotalFromCatalog);
+    const discountTotal = this.roundMoney(Math.min(toNumber(dto.discountTotal), subtotal));
+    const total = this.roundMoney(Math.max(0, subtotal - discountTotal));
 
     if (total < 0 || subtotal < 0 || discountTotal < 0) {
       throw new BadRequestException('Los importes del pedido no son válidos.');
@@ -50,71 +122,101 @@ export class RopaOrdersService {
     const orderCode = createRopOrderCode();
     const now = new Date();
 
-    const order = await this.databaseService.db
-      .insertInto('rop_orders')
-      .values({
-        order_code: orderCode,
-        customer_id: customerId,
-        customer_full_name: dto.customer.fullName,
-        customer_phone: dto.customer.phone,
-        customer_email: dto.customer.email,
-        customer_document_number: dto.customer.documentNumber ?? null,
-        contact_preference: dto.contactPreference,
-        payment_method: dto.paymentMethod,
-        payment_status: DEFAULT_PAYMENT_STATUS,
-        payment_notes: dto.paymentNotes ?? null,
-        paid_at: null,
-        delivery_address_line: dto.deliveryLocation.addressLine,
-        delivery_reference: dto.deliveryLocation.reference ?? null,
-        delivery_district: dto.deliveryLocation.district ?? null,
-        delivery_latitude: dto.deliveryLocation.latitude?.toString() ?? null,
-        delivery_longitude: dto.deliveryLocation.longitude?.toString() ?? null,
-        delivery_google_place_id: dto.deliveryLocation.googlePlaceId ?? null,
-        subtotal: toMoney(subtotal),
-        discount_total: toMoney(discountTotal),
-        total: toMoney(total),
-        coupon_code: dto.coupon?.code ?? null,
-        coupon_name: dto.coupon?.name ?? null,
-        coupon_discount_percentage: dto.coupon ? toMoney(dto.coupon.discountPercentage) : null,
-        coupon_discount_amount: dto.coupon ? toMoney(dto.coupon.discountAmount) : null,
-        status: DEFAULT_ORDER_STATUS,
-        created_at: now,
-        updated_at: now,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const createdOrderId = await this.databaseService.db.transaction().execute(async (trx) => {
+      const order = await trx
+        .insertInto('rop_orders')
+        .values({
+          order_code: orderCode,
+          customer_id: customerId,
+          customer_full_name: dto.customer.fullName,
+          customer_phone: dto.customer.phone,
+          customer_email: dto.customer.email,
+          customer_document_number: dto.customer.documentNumber ?? null,
+          contact_preference: dto.contactPreference,
+          payment_method: dto.paymentMethod,
+          payment_status: DEFAULT_PAYMENT_STATUS,
+          payment_notes: dto.paymentNotes ?? null,
+          paid_at: null,
+          delivery_address_line: dto.deliveryLocation.addressLine,
+          delivery_reference: dto.deliveryLocation.reference ?? null,
+          delivery_district: dto.deliveryLocation.district ?? null,
+          delivery_latitude: dto.deliveryLocation.latitude?.toString() ?? null,
+          delivery_longitude: dto.deliveryLocation.longitude?.toString() ?? null,
+          delivery_google_place_id: dto.deliveryLocation.googlePlaceId ?? null,
+          subtotal: toMoney(subtotal),
+          discount_total: toMoney(discountTotal),
+          total: toMoney(total),
+          coupon_code: dto.coupon?.code ?? null,
+          coupon_name: dto.coupon?.name ?? null,
+          coupon_discount_percentage: dto.coupon ? toMoney(dto.coupon.discountPercentage) : null,
+          coupon_discount_amount: dto.coupon ? toMoney(discountTotal) : null,
+          status: DEFAULT_ORDER_STATUS,
+          created_at: now,
+          updated_at: now,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
 
-    await this.databaseService.db
-      .insertInto('rop_order_items')
-      .values(
-        dto.items.map((item) => ({
+      await trx
+        .insertInto('rop_order_items')
+        .values(
+          dto.items.map((item) => {
+            const variant = variantsById.get(item.variantId as string);
+            const quantity = Math.max(1, Math.trunc(Number(item.quantity) || 1));
+            const unitPrice = variant
+              ? this.roundMoney(toNumber(variant.sale_price ?? variant.base_price) + toNumber(variant.additional_price))
+              : toNumber(item.price);
+
+            return {
+              order_id: order.id,
+              product_id: variant?.product_id ?? item.productId ?? null,
+              variant_id: item.variantId ?? null,
+              sku: variant?.sku ?? item.sku ?? null,
+              product_name_snapshot: variant?.product_name ?? item.name,
+              image_url_snapshot: variant?.main_image_url ?? item.imageUrl ?? null,
+              size_snapshot: variant?.size ?? item.size ?? null,
+              color_name_snapshot: variant?.color_name ?? item.color ?? null,
+              quantity,
+              unit_price_snapshot: toMoney(unitPrice),
+              subtotal: toMoney(unitPrice * quantity),
+            };
+          }),
+        )
+        .execute();
+
+      for (const [variantId, quantity] of requestedByVariant.entries()) {
+        const updatedVariant = await trx
+          .updateTable('rop_product_variants')
+          .set({
+            stock: sql<number>`stock - ${quantity}`,
+            updated_at: now,
+          })
+          .where('id', '=', variantId)
+          .where('is_active', '=', true)
+          .where('stock', '>=', quantity)
+          .returning(['id', 'stock'])
+          .executeTakeFirst();
+
+        if (!updatedVariant) {
+          throw new BadRequestException('El stock cambió mientras se procesaba el pedido. Actualiza tu carrito e inténtalo nuevamente.');
+        }
+      }
+
+      await trx
+        .insertInto('rop_order_status_history')
+        .values({
           order_id: order.id,
-          product_id: item.productId ?? null,
-          variant_id: item.variantId ?? null,
-          sku: item.sku ?? null,
-          product_name_snapshot: item.name,
-          image_url_snapshot: item.imageUrl ?? null,
-          size_snapshot: item.size ?? null,
-          color_name_snapshot: item.color ?? null,
-          quantity: Math.max(1, Math.trunc(Number(item.quantity) || 1)),
-          unit_price_snapshot: toMoney(item.price),
-          subtotal: toMoney(toNumber(item.price) * Math.max(1, Math.trunc(Number(item.quantity) || 1))),
-        })),
-      )
-      .execute();
+          status: DEFAULT_ORDER_STATUS,
+          payment_status: DEFAULT_PAYMENT_STATUS,
+          changed_by: customerId,
+          comment: 'Pedido creado por el cliente y stock reservado automáticamente.',
+        })
+        .execute();
 
-    await this.databaseService.db
-      .insertInto('rop_order_status_history')
-      .values({
-        order_id: order.id,
-        status: DEFAULT_ORDER_STATUS,
-        payment_status: DEFAULT_PAYMENT_STATUS,
-        changed_by: customerId,
-        comment: 'Pedido creado por el cliente.',
-      })
-      .execute();
+      return order.id;
+    });
 
-    return this.getOrderById(order.id);
+    return this.getOrderById(createdOrderId);
   }
 
   async listMyOrders(customerId: string) {
@@ -217,6 +319,11 @@ export class RopaOrdersService {
       .execute();
 
     return this.getOrderById(orderId);
+  }
+
+
+  private roundMoney(value: number) {
+    return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
   }
 
   private async listOrders(filters: { customerId?: string } = {}) {
