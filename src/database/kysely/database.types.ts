@@ -353,6 +353,72 @@ export interface RopCouponRedemptionsTable {
   created_at: Generated<Date>;
 }
 
+
+export interface RopOrdersTable {
+  id: Generated<string>;
+  order_code: string;
+  customer_id: string;
+  customer_full_name: string;
+  customer_phone: string;
+  customer_email: string;
+  customer_document_number: string | null;
+  contact_preference: 'WHATSAPP' | 'EMAIL' | 'PHONE';
+  payment_method: 'YAPE' | 'PLIN' | 'BANK_TRANSFER';
+  payment_status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+  payment_notes: string | null;
+  paid_at: Date | null;
+  delivery_address_line: string;
+  delivery_reference: string | null;
+  delivery_district: string | null;
+  delivery_latitude: string | null;
+  delivery_longitude: string | null;
+  delivery_google_place_id: string | null;
+  subtotal: string;
+  discount_total: string;
+  total: string;
+  coupon_code: string | null;
+  coupon_name: string | null;
+  coupon_discount_percentage: string | null;
+  coupon_discount_amount: string | null;
+  status:
+    | 'PENDING_CONTACT'
+    | 'CONTACTED'
+    | 'PAYMENT_PENDING'
+    | 'PAYMENT_CONFIRMED'
+    | 'PREPARING'
+    | 'SHIPPED'
+    | 'DELIVERED'
+    | 'CANCELLED';
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface RopOrderItemsTable {
+  id: Generated<string>;
+  order_id: string;
+  product_id: string | null;
+  variant_id: string | null;
+  sku: string | null;
+  product_name_snapshot: string;
+  image_url_snapshot: string | null;
+  size_snapshot: string | null;
+  color_name_snapshot: string | null;
+  quantity: number;
+  unit_price_snapshot: string;
+  subtotal: string;
+  created_at: Generated<Date>;
+}
+
+export interface RopOrderStatusHistoryTable {
+  id: Generated<string>;
+  order_id: string;
+  status: string;
+  payment_status: string | null;
+  changed_by: string | null;
+  comment: string | null;
+  created_at: Generated<Date>;
+}
+
 export interface ReclamationBookTable {
   id: Generated<string>;
   claim_code: string;
@@ -410,6 +476,9 @@ export interface Database {
   rop_coupons: RopCouponsTable;
   rop_coupon_products: RopCouponProductsTable;
   rop_coupon_redemptions: RopCouponRedemptionsTable;
+  rop_orders: RopOrdersTable;
+  rop_order_items: RopOrderItemsTable;
+  rop_order_status_history: RopOrderStatusHistoryTable;
   reclamation_book: ReclamationBookTable;
 }
 
