@@ -251,7 +251,7 @@ export class RopaOrdersService {
   async updateOrderStatus(orderId: string, dto: UpdateRopOrderStatusDto, changedBy: string) {
     const existing = await this.databaseService.db
       .selectFrom('rop_orders')
-      .select(['id', 'payment_status'])
+      .select(['id', 'status', 'payment_status'])
       .where('id', '=', orderId)
       .executeTakeFirst();
 
@@ -259,22 +259,38 @@ export class RopaOrdersService {
       throw new NotFoundException('Pedido de ropa no encontrado.');
     }
 
-    await this.databaseService.db
-      .updateTable('rop_orders')
-      .set({ status: dto.status, updated_at: new Date() })
-      .where('id', '=', orderId)
-      .execute();
+    const now = new Date();
+    const shouldRestoreStock =
+      dto.status === 'CANCELLED' &&
+      existing.status !== 'CANCELLED' &&
+      existing.status !== 'DELIVERED';
 
-    await this.databaseService.db
-      .insertInto('rop_order_status_history')
-      .values({
-        order_id: orderId,
-        status: dto.status,
-        payment_status: existing.payment_status,
-        changed_by: changedBy,
-        comment: dto.comment ?? null,
-      })
-      .execute();
+    await this.databaseService.db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable('rop_orders')
+        .set({ status: dto.status, updated_at: now })
+        .where('id', '=', orderId)
+        .execute();
+
+      if (shouldRestoreStock) {
+        await this.restoreStockForOrder(orderId, trx, now);
+      }
+
+      await trx
+        .insertInto('rop_order_status_history')
+        .values({
+          order_id: orderId,
+          status: dto.status,
+          payment_status: existing.payment_status,
+          changed_by: changedBy,
+          comment:
+            dto.comment ??
+            (shouldRestoreStock
+              ? 'Pedido cancelado. Stock devuelto automáticamente.'
+              : null),
+        })
+        .execute();
+    });
 
     return this.getOrderById(orderId);
   }
@@ -282,7 +298,7 @@ export class RopaOrdersService {
   async updatePaymentStatus(orderId: string, dto: UpdateRopPaymentStatusDto, changedBy: string) {
     const existing = await this.databaseService.db
       .selectFrom('rop_orders')
-      .select(['id', 'status'])
+      .select(['id', 'status', 'payment_status'])
       .where('id', '=', orderId)
       .executeTakeFirst();
 
@@ -293,34 +309,80 @@ export class RopaOrdersService {
     const nextStatus = dto.paymentStatus === 'CONFIRMED'
       ? 'PAYMENT_CONFIRMED'
       : dto.paymentStatus === 'REJECTED'
-        ? 'PAYMENT_PENDING'
-        : existing.status;
+        ? 'CANCELLED'
+        : existing.status === 'PAYMENT_CONFIRMED'
+          ? 'PAYMENT_PENDING'
+          : existing.status;
 
-    await this.databaseService.db
-      .updateTable('rop_orders')
-      .set({
-        payment_status: dto.paymentStatus,
-        paid_at: dto.paymentStatus === 'CONFIRMED' ? new Date() : null,
-        status: nextStatus,
-        updated_at: new Date(),
-      })
-      .where('id', '=', orderId)
-      .execute();
+    const now = new Date();
+    const shouldRestoreStock =
+      dto.paymentStatus === 'REJECTED' &&
+      existing.status !== 'CANCELLED' &&
+      existing.status !== 'DELIVERED';
 
-    await this.databaseService.db
-      .insertInto('rop_order_status_history')
-      .values({
-        order_id: orderId,
-        status: nextStatus,
-        payment_status: dto.paymentStatus,
-        changed_by: changedBy,
-        comment: dto.comment ?? null,
-      })
-      .execute();
+    await this.databaseService.db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable('rop_orders')
+        .set({
+          payment_status: dto.paymentStatus,
+          paid_at: dto.paymentStatus === 'CONFIRMED' ? now : null,
+          status: nextStatus,
+          updated_at: now,
+        })
+        .where('id', '=', orderId)
+        .execute();
+
+      if (shouldRestoreStock) {
+        await this.restoreStockForOrder(orderId, trx, now);
+      }
+
+      await trx
+        .insertInto('rop_order_status_history')
+        .values({
+          order_id: orderId,
+          status: nextStatus,
+          payment_status: dto.paymentStatus,
+          changed_by: changedBy,
+          comment:
+            dto.comment ??
+            (shouldRestoreStock
+              ? 'Pago rechazado. Pedido cancelado y stock devuelto automáticamente.'
+              : null),
+        })
+        .execute();
+    });
 
     return this.getOrderById(orderId);
   }
 
+  /**
+   * Nota para mí:
+   * Cuando un pedido se cancela o se rechaza el pago, devuelvo el stock reservado.
+   * Algunos pedidos antiguos pueden no tener variant_id porque fueron creados antes
+   * de la mejora de tallas/stock; esos items se omiten para evitar errores.
+   */
+  private async restoreStockForOrder(orderId: string, trx: any, now: Date) {
+    const items = await trx
+      .selectFrom('rop_order_items')
+      .select(['variant_id', 'quantity'])
+      .where('order_id', '=', orderId)
+      .execute();
+
+    for (const item of items) {
+      if (!item.variant_id || !item.quantity || Number(item.quantity) <= 0) {
+        continue;
+      }
+
+      await trx
+        .updateTable('rop_product_variants')
+        .set({
+          stock: sql<number>`stock + ${Number(item.quantity)}`,
+          updated_at: now,
+        })
+        .where('id', '=', item.variant_id)
+        .execute();
+    }
+  }
 
   private roundMoney(value: number) {
     return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
