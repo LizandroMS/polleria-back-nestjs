@@ -27,7 +27,7 @@ export class RopaStorageService {
   async uploadProductImage(file: UploadedImageFile | undefined, options: UploadProductImageOptions = {}) {
     this.ensureFileIsValid(file);
 
-    const supabaseUrl = this.getRequiredEnv('SUPABASE_URL').replace(/\/$/, '');
+    const supabaseUrl = this.getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/$/, '');
     const serviceRoleKey = this.getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
     const bucket = this.configService.get<string>('SUPABASE_ROP_IMAGES_BUCKET') || 'rop-product-images';
     const storagePath = this.buildStoragePath(file!, options.productId);
@@ -74,7 +74,7 @@ export class RopaStorageService {
   async deleteProductImageByPath(storagePath?: string | null) {
     if (!storagePath) return;
 
-    const supabaseUrl = this.getRequiredEnv('SUPABASE_URL').replace(/\/$/, '');
+    const supabaseUrl = this.getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/$/, '');
     const serviceRoleKey = this.getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
     const bucket = this.configService.get<string>('SUPABASE_ROP_IMAGES_BUCKET') || 'rop-product-images';
     const deleteUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`;
