@@ -26,7 +26,7 @@ export const envValidationSchema = Joi.object({
   APISUNAT_TOKEN: Joi.string().allow('').optional(),
 
   NEXT_PUBLIC_SUPABASE_URL: Joi.string().uri().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: Joi.string().allow('').optional(),
   SUPABASE_ROP_IMAGES_BUCKET: Joi.string().default('rop-product-images'),
 
   RATE_LIMIT_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),

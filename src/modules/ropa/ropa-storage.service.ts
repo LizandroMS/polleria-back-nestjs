@@ -28,7 +28,7 @@ export class RopaStorageService {
     this.ensureFileIsValid(file);
 
     const supabaseUrl = this.getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/$/, '');
-    const serviceRoleKey = this.getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const serviceRoleKey = this.getRequiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
     const bucket = this.configService.get<string>('SUPABASE_ROP_IMAGES_BUCKET') || 'rop-product-images';
     const storagePath = this.buildStoragePath(file!, options.productId);
     const uploadUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`;
@@ -75,7 +75,7 @@ export class RopaStorageService {
     if (!storagePath) return;
 
     const supabaseUrl = this.getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL').replace(/\/$/, '');
-    const serviceRoleKey = this.getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const serviceRoleKey = this.getRequiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
     const bucket = this.configService.get<string>('SUPABASE_ROP_IMAGES_BUCKET') || 'rop-product-images';
     const deleteUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`;
 
