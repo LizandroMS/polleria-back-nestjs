@@ -28,4 +28,13 @@ export const envValidationSchema = Joi.object({
   SUPABASE_URL: Joi.string().uri().optional(),
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
   SUPABASE_ROP_IMAGES_BUCKET: Joi.string().default('rop-product-images'),
+
+  RATE_LIMIT_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
+  RATE_LIMIT_WINDOW_MS: Joi.number().default(60000),
+  RATE_LIMIT_GENERAL_MAX: Joi.number().default(180),
+  RATE_LIMIT_AUTH_MAX: Joi.number().default(12),
+  RATE_LIMIT_UPLOAD_MAX: Joi.number().default(30),
+  RATE_LIMIT_STRICT_MAX: Joi.number().default(40),
+  RATE_LIMIT_MAX_STRIKES: Joi.number().default(5),
+  RATE_LIMIT_BLOCK_MS: Joi.number().default(900000),
 });

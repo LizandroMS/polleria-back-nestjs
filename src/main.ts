@@ -4,9 +4,21 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { createRateLimitMiddleware, buildRateLimitOptionsFromEnv } from './common/security/rate-limit.middleware';
+import { securityHeadersMiddleware } from './common/security/security-headers.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  /**
+   * Nota para mí:
+   * En Railway el backend está detrás de proxy. Activo trust proxy para que
+   * Express pueda reconocer correctamente cabeceras como x-forwarded-for.
+   */
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
+  app.use(securityHeadersMiddleware);
+  app.use(createRateLimitMiddleware(buildRateLimitOptionsFromEnv()));
 
   app.setGlobalPrefix(process.env.API_PREFIX ?? 'api/v1');
 
