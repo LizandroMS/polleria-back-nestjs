@@ -915,7 +915,7 @@ export class RopaService {
     const keys = new Set<string>();
 
     variants.forEach((variant) => {
-      const key = `${variant.size.trim().toUpperCase()}-${variant.colorName.trim().toUpperCase()}`;
+      const key = this.getVariantCombinationKey(variant.size, variant.colorName);
       if (keys.has(key)) {
         throw new BadRequestException('No se puede repetir la misma talla y color en el producto');
       }
@@ -929,21 +929,33 @@ export class RopaService {
     colorName: string,
     excludedVariantId?: string,
   ) {
-    let query = this.databaseService.db
+    /**
+     * Nota para mí:
+     * El negocio sí permite que una misma talla tenga varios colores.
+     * Lo único prohibido es duplicar exactamente la misma combinación talla/color
+     * dentro del mismo producto. Comparo en memoria normalizando mayúsculas para
+     * evitar duplicados como "Negro" y "negro".
+     */
+    const variants = await this.databaseService.db
       .selectFrom('rop_product_variants')
-      .select(['id'])
+      .select(['id', 'size', 'color_name'])
       .where('product_id', '=', productId)
-      .where('size', '=', size.trim())
-      .where('color_name', '=', colorName.trim());
+      .execute();
 
-    if (excludedVariantId) {
-      query = query.where('id', '!=', excludedVariantId);
-    }
+    const requestedKey = this.getVariantCombinationKey(size, colorName);
+    const exists = variants.some(
+      (variant) =>
+        variant.id !== excludedVariantId &&
+        this.getVariantCombinationKey(variant.size, variant.color_name) === requestedKey,
+    );
 
-    const exists = await query.executeTakeFirst();
     if (exists) {
       throw new BadRequestException('Ya existe una variante con la misma talla y color');
     }
+  }
+
+  private getVariantCombinationKey(size: string, colorName: string) {
+    return `${size.trim().toUpperCase()}-${colorName.trim().toUpperCase()}`;
   }
 
   private async ensureSkuIsAvailable(sku?: string | null, excludedVariantId?: string) {
